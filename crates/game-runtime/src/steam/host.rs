@@ -208,7 +208,7 @@ impl Startup {
         let mut authenticated = false;
         loop {
             self.check_cancelled()?;
-            if start.elapsed() > Duration::from_secs(50) {
+            if start.elapsed() > protocol::SUPERVISOR_STARTUP_TIMEOUT {
                 return Err(Error::Timeout);
             }
             let event = host.next(Duration::from_millis(50))?;

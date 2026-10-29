@@ -1,6 +1,18 @@
 //! The only input containing secrets is the inherited, private stdin pipe.
 use std::io::{Read, Write};
+use std::time::Duration;
 use zeroize::{Zeroize, ZeroizeOnDrop, Zeroizing};
+
+/// The native Steam host's bounded startup budget. A cold library can need
+/// over a minute to publish its licenses after authentication succeeds.
+pub const HOST_STARTUP_TIMEOUT: Duration = Duration::from_secs(180);
+/// What the supervisor waits for the host. Its clock starts at spawn and the
+/// host's only after it has loaded the engine and logged in, and a verdict
+/// still has to travel back: the margin covers both.
+pub const SUPERVISOR_STARTUP_TIMEOUT: Duration =
+    HOST_STARTUP_TIMEOUT.saturating_add(Duration::from_secs(10));
+// A budget under a minute fails the cold libraries it exists for.
+const _: () = assert!(HOST_STARTUP_TIMEOUT.as_secs() > 60);
 
 #[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub struct Credentials {
