@@ -61,13 +61,10 @@
     },
     {
       "name": "THE FINALS",
-      "note": "Embark's THEIA packer refuses Rosetta's Wine (E111000D) and runs on the Linux engine, with Denuvo Anti-Cheat. Unreal renders it with Direct3D 11 when it starts with --dx11, through DXMT as Rocket League.",
+      "note": "Embark's THEIA packer refuses Rosetta's Wine (E111000D) and runs on the Linux engine, with Denuvo Anti-Cheat. Unreal renders it with Direct3D 12, through D3DMetal: with Direct3D 11 through DXMT, matches held the frame each time DXMT compiled a new pipeline.",
       "steam": 2073850,
       "engine": "Linux",
-      "graphics": "Dxmt",
-      "arguments": [
-        "--dx11"
-      ]
+      "graphics": "D3DMetal"
     },
     {
       "name": "Counter-Strike 2",
