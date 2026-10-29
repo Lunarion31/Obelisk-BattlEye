@@ -175,6 +175,7 @@ mod tests {
         let temporary = tempfile::tempdir().unwrap();
         let prepared = Prepared {
             storage: None,
+            licenses: None,
             directory: temporary.path().join("engine"),
             run_directory: temporary.path().join("run"),
             profile: temporary.path().join("profile"),

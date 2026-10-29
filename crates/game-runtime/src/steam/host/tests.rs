@@ -14,6 +14,7 @@ pub(super) fn child(script: &str) -> process::Child {
 pub(super) fn prepared(root: &std::path::Path) -> files::Prepared {
     files::Prepared {
         storage: None,
+        licenses: None,
         directory: root.into(),
         run_directory: root.join("scratch"),
         profile: root.join("profile"),

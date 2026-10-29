@@ -2,6 +2,7 @@
 //! account's Steam session for one game, from the pinned Steam components,
 //! and what it tells of the game's requests while the game runs.
 mod files;
+mod licenses;
 mod process;
 
 use super::{Control, Error};
@@ -57,6 +58,11 @@ pub struct Config {
     pub wine: Option<wine::Config>,
 }
 
+/// Where the pinned Steam client keeps its files under the `HOME` it runs
+/// with, which is the host's private home. It is not the player's own Steam,
+/// which the host can neither read nor need.
+const STEAM_DIRECTORY: &str = "Library/Application Support/Steam";
+
 /// One start of the Steam host, which another thread may cancel. Its
 /// credentials go to the host once.
 pub(crate) struct Startup {
@@ -74,7 +80,7 @@ pub struct NativeStorage {
 }
 impl NativeStorage {
     pub fn steam_directory(&self) -> PathBuf {
-        self.home.join("Library/Application Support/Steam")
+        self.home.join(STEAM_DIRECTORY)
     }
     /// The account- and app-specific SDK cloud cache the coordinator projects into.
     pub fn cache_directory(&self) -> PathBuf {
@@ -150,6 +156,8 @@ impl Startup {
             }
             prepared.enable_storage(storage)?;
         }
+        // A cache that cannot be kept only costs the launch its head start.
+        let _ = prepared.enable_licenses(&config.cache, id);
         self.check_cancelled()?;
         let service = format!(
             "com.zagrios.obelisk.discovery.{}",

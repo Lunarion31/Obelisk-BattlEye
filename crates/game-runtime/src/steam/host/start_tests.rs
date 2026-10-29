@@ -56,6 +56,41 @@ fn host_readiness_admits_an_unknown_sdk_and_reports_it_as_unchecked() {
     host.stopped(None);
 }
 
+#[test]
+fn the_accounts_kept_files_reach_the_host_and_what_it_writes_is_kept() {
+    let root = tempfile::tempdir().unwrap();
+    let (config, prepared) = fixture(root.path());
+    let kept = root
+        .path()
+        .join(format!("account-{}", credentials().steam_id));
+    fs::create_dir_all(&kept).unwrap();
+    fs::write(kept.join("licensecache"), b"kept licenses").unwrap();
+    let steam = prepared.steam_directory();
+    let host = Startup::new(credentials())
+        .prepare_host(
+            &config,
+            None,
+            &mut Vec::new(),
+            credentials(),
+            prepared,
+            ready_host,
+        )
+        .unwrap();
+    let account = credentials().steam_id as u32;
+    assert_eq!(
+        fs::read(steam.join(format!("userdata/{account}/config/licensecache"))).unwrap(),
+        b"kept licenses"
+    );
+    fs::write(steam.join("appcache/packageinfo.vdf"), b"fetched").unwrap();
+    host.stopped(None);
+    drop(host);
+    assert_eq!(fs::read(kept.join("packageinfo.vdf")).unwrap(), b"fetched");
+    assert_eq!(
+        fs::read(kept.join("licensecache")).unwrap(),
+        b"kept licenses"
+    );
+}
+
 fn storage(root: &std::path::Path) -> (NativeStorage, PathBuf) {
     let storage = NativeStorage {
         home: root.join("native-home"),
