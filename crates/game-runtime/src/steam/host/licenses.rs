@@ -1,14 +1,12 @@
 //! What the Steam client keeps on disk between sessions: the licenses it
-//! received (`licensecache`), the package information it fetched
-//! (`packageinfo.vdf`) and the information of the apps they hold
-//! (`appinfo.vdf`). Steam reads them at start and asks its servers only for
+//! received, the package information it fetched and the information of the
+//! apps they hold. Steam reads them at start and asks its servers only for
 //! what changed since, so it knows the account's games before the network has
 //! answered. A host's home is thrown away with its launch, so each launch
 //! began cold and a large library could take over a minute to publish its
-//! licenses. Obelisk keeps these files for the account. All three matter: the
-//! wait between sign-in and a game reported owned fell from about three seconds
-//! to under one only once `appinfo.vdf` was kept too. Ownership still comes
-//! from the ticket the servers issue, never from these files.
+//! licenses. Obelisk keeps these files for the account, the app information as
+//! much as the licenses. Ownership still comes from the ticket the servers
+//! issue, never from these files.
 use super::files::atomic_write;
 use crate::{files::private_directory, steam::Error};
 use std::{
@@ -16,53 +14,47 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// A kept account's folder in the runtime cache, which the cleanup of stale
-/// launches leaves alone.
-const ACCOUNT: &str = "account-";
-
-/// The files the client keeps for `account`: the name each has among the
-/// kept files, and where the client reads and writes it under its Steam
-/// directory.
-fn files(account: u32) -> [(&'static str, String); 3] {
-    [
-        ("packageinfo.vdf", "appcache/packageinfo.vdf".into()),
-        ("appinfo.vdf", "appcache/appinfo.vdf".into()),
-        (
-            "licensecache",
-            format!("userdata/{account}/config/licensecache"),
-        ),
-    ]
-}
-
-/// One account's kept files.
+/// One account's kept files, and where the client has them.
 pub(crate) struct LicenseCache {
-    kept: PathBuf,
-    account: u32,
+    /// Each file as kept and as the client reads and writes it.
+    files: [(PathBuf, PathBuf); 3],
+    /// The folders the client writes them in.
+    folders: [PathBuf; 2],
 }
 impl LicenseCache {
-    pub fn new(cache: &Path, steam_id: u64) -> Result<Self, Error> {
-        let kept = cache.join(format!("{ACCOUNT}{steam_id}"));
+    /// The kept files of `steam_id` for a client whose Steam directory is
+    /// `steam`. They live in the runtime cache, whose cleanup only sweeps the
+    /// stale launches and runtimes it names.
+    pub fn new(cache: &Path, steam_id: u64, steam: &Path) -> Result<Self, Error> {
+        let kept = cache.join(format!("account-{steam_id}"));
         private_directory(&kept)?;
+        let appcache = steam.join("appcache");
+        let config = steam.join(format!("userdata/{}/config", steam_id as u32));
+        let file = |folder: &Path, name: &str| (kept.join(name), folder.join(name));
         Ok(Self {
-            kept,
-            account: steam_id as u32,
+            files: [
+                file(&appcache, "packageinfo.vdf"),
+                file(&appcache, "appinfo.vdf"),
+                file(&config, "licensecache"),
+            ],
+            folders: [appcache, config],
         })
     }
-    /// The folders the client writes its files in, under `steam`.
-    pub fn folders(&self, steam: &Path) -> [PathBuf; 2] {
-        [
-            steam.join("appcache"),
-            steam.join(format!("userdata/{}/config", self.account)),
-        ]
+    pub fn folders(&self) -> &[PathBuf] {
+        &self.folders
+    }
+    /// The folder of the kept files.
+    #[cfg(test)]
+    pub(super) fn kept(&self) -> &Path {
+        self.files[0].0.parent().unwrap()
     }
     /// Gives the client the kept files it has none of yet, and the folders to
     /// write them in. A file already there is newer than the kept one.
-    pub fn seed(&self, steam: &Path) -> Result<(), Error> {
-        for folder in self.folders(steam) {
-            private_directory(&folder)?;
+    pub fn seed(&self) -> Result<(), Error> {
+        for folder in &self.folders {
+            private_directory(folder)?;
         }
-        for (name, place) in files(self.account) {
-            let (kept, target) = (self.kept.join(name), steam.join(place));
+        for (kept, target) in &self.files {
             if kept.is_file() && !target.exists() {
                 fs::copy(kept, target)?;
             }
@@ -72,20 +64,15 @@ impl LicenseCache {
     /// Keeps the client's files, replacing the kept ones whole. What the client
     /// left unfinished fails its own checks when read back, as it would after
     /// a crash of Steam itself.
-    pub fn keep(&self, steam: &Path) {
-        for (name, place) in files(self.account) {
-            let source = steam.join(place);
+    pub fn keep(&self) {
+        for (kept, source) in &self.files {
             // The client's folder is its own: follow nothing it linked.
-            let Ok(metadata) = fs::symlink_metadata(&source) else {
-                continue;
-            };
-            if !metadata.is_file() || metadata.len() == 0 {
-                continue;
+            if fs::symlink_metadata(source).is_ok_and(|file| file.is_file() && file.len() > 0) {
+                let _ = atomic_write(kept, |file| {
+                    std::io::copy(&mut fs::File::open(source)?, file)?;
+                    Ok(())
+                });
             }
-            let _ = atomic_write(&self.kept.join(name), |file| {
-                std::io::copy(&mut fs::File::open(&source)?, file)?;
-                Ok(())
-            });
         }
     }
 }
@@ -94,88 +81,94 @@ impl LicenseCache {
 mod tests {
     use super::*;
 
-    fn client_directory(root: &Path) -> PathBuf {
-        root.join("home/Library/Application Support/Steam")
-    }
-    const ID: u64 = 0x011000010000002a;
-    fn client_files(steam: &Path) -> [PathBuf; 3] {
-        files(42).map(|(_, place)| steam.join(place))
+    /// The cache of the account whose id is 42, and the client's Steam
+    /// directory beside it.
+    fn setup() -> (tempfile::TempDir, LicenseCache, PathBuf) {
+        let root = tempfile::tempdir().unwrap();
+        let steam = root.path().join("steam");
+        let cache = LicenseCache::new(root.path(), 0x011000010000002a, &steam).unwrap();
+        (root, cache, steam)
     }
 
     #[test]
     fn a_cold_host_gets_the_kept_files_and_the_folders_to_write_in() {
-        let root = tempfile::tempdir().unwrap();
-        let cache = LicenseCache::new(root.path(), ID).unwrap();
-        fs::write(cache.kept.join("licensecache"), b"licenses").unwrap();
-        let steam = client_directory(root.path());
-        cache.seed(&steam).unwrap();
-        let [packages, _, licenses] = client_files(&steam);
+        let (_root, cache, steam) = setup();
+        fs::write(cache.kept().join("licensecache"), b"licenses").unwrap();
+        cache.seed().unwrap();
+        assert_eq!(
+            fs::read(steam.join("userdata/42/config/licensecache")).unwrap(),
+            b"licenses"
+        );
         // Only what was kept: the client writes the rest.
-        assert!(!packages.exists());
-        assert_eq!(fs::read(&licenses).unwrap(), b"licenses");
-        assert!(packages.parent().unwrap().is_dir());
+        assert!(!steam.join("appcache/packageinfo.vdf").exists());
+        assert!(steam.join("appcache").is_dir());
     }
 
     #[test]
     fn seeding_never_replaces_a_file_the_client_already_has() {
-        let root = tempfile::tempdir().unwrap();
-        let cache = LicenseCache::new(root.path(), ID).unwrap();
-        fs::write(cache.kept.join("packageinfo.vdf"), b"older").unwrap();
-        let steam = client_directory(root.path());
-        let [packages, ..] = client_files(&steam);
-        fs::create_dir_all(packages.parent().unwrap()).unwrap();
-        fs::write(&packages, b"newer").unwrap();
-        cache.seed(&steam).unwrap();
-        assert_eq!(fs::read(packages).unwrap(), b"newer");
+        let (_root, cache, steam) = setup();
+        fs::write(cache.kept().join("packageinfo.vdf"), b"older").unwrap();
+        fs::create_dir_all(steam.join("appcache")).unwrap();
+        fs::write(steam.join("appcache/packageinfo.vdf"), b"newer").unwrap();
+        cache.seed().unwrap();
+        assert_eq!(
+            fs::read(steam.join("appcache/packageinfo.vdf")).unwrap(),
+            b"newer"
+        );
     }
 
     #[test]
     fn what_the_client_wrote_is_kept_for_the_next_host_of_the_account() {
-        let root = tempfile::tempdir().unwrap();
-        let cache = LicenseCache::new(root.path(), ID).unwrap();
-        let steam = client_directory(root.path());
-        cache.seed(&steam).unwrap();
-        let [packages, _, licenses] = client_files(&steam);
+        let (root, cache, steam) = setup();
+        cache.seed().unwrap();
+        let (packages, licenses) = (
+            steam.join("appcache/packageinfo.vdf"),
+            steam.join("userdata/42/config/licensecache"),
+        );
         fs::write(&packages, b"packages").unwrap();
         fs::write(&licenses, b"licenses").unwrap();
-        cache.keep(&steam);
+        cache.keep();
         fs::write(&packages, b"more packages").unwrap();
-        cache.keep(&steam);
+        cache.keep();
 
-        let next = LicenseCache::new(root.path(), ID).unwrap();
-        let other = tempfile::tempdir().unwrap();
-        let fresh = client_directory(other.path());
-        next.seed(&fresh).unwrap();
-        let [packages, _, licenses] = client_files(&fresh);
-        assert_eq!(fs::read(packages).unwrap(), b"more packages");
-        assert_eq!(fs::read(licenses).unwrap(), b"licenses");
+        let fresh = root.path().join("fresh");
+        let next = LicenseCache::new(root.path(), 0x011000010000002a, &fresh).unwrap();
+        next.seed().unwrap();
+        assert_eq!(
+            fs::read(fresh.join("appcache/packageinfo.vdf")).unwrap(),
+            b"more packages"
+        );
+        assert_eq!(
+            fs::read(fresh.join("userdata/42/config/licensecache")).unwrap(),
+            b"licenses"
+        );
         // Another account of the same Mac starts from nothing.
-        let stranger = LicenseCache::new(root.path(), ID + 1).unwrap();
-        assert_ne!(stranger.kept, next.kept);
-        assert_eq!(fs::read_dir(&stranger.kept).unwrap().count(), 0);
+        let stranger = LicenseCache::new(root.path(), 0x011000010000002b, &fresh).unwrap();
+        assert_eq!(fs::read_dir(stranger.kept()).unwrap().count(), 0);
     }
 
     #[test]
     fn an_empty_or_linked_file_never_replaces_a_kept_one() {
-        let root = tempfile::tempdir().unwrap();
-        let cache = LicenseCache::new(root.path(), ID).unwrap();
-        fs::write(cache.kept.join("licensecache"), b"licenses").unwrap();
-        fs::write(cache.kept.join("packageinfo.vdf"), b"packages").unwrap();
-        let steam = client_directory(root.path());
-        cache.seed(&steam).unwrap();
-        let [packages, _, licenses] = client_files(&steam);
+        let (root, cache, steam) = setup();
+        fs::write(cache.kept().join("licensecache"), b"licenses").unwrap();
+        fs::write(cache.kept().join("packageinfo.vdf"), b"packages").unwrap();
+        cache.seed().unwrap();
+        let (packages, licenses) = (
+            steam.join("appcache/packageinfo.vdf"),
+            steam.join("userdata/42/config/licensecache"),
+        );
         fs::write(&licenses, b"").unwrap();
         fs::remove_file(&packages).unwrap();
         let secret = root.path().join("secret");
         fs::write(&secret, b"not the client's").unwrap();
         std::os::unix::fs::symlink(&secret, &packages).unwrap();
-        cache.keep(&steam);
+        cache.keep();
         assert_eq!(
-            fs::read(cache.kept.join("licensecache")).unwrap(),
+            fs::read(cache.kept().join("licensecache")).unwrap(),
             b"licenses"
         );
         assert_eq!(
-            fs::read(cache.kept.join("packageinfo.vdf")).unwrap(),
+            fs::read(cache.kept().join("packageinfo.vdf")).unwrap(),
             b"packages"
         );
     }

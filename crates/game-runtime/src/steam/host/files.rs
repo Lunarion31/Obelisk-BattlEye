@@ -20,9 +20,10 @@ pub(crate) struct Prepared {
 }
 impl Drop for Prepared {
     fn drop(&mut self) {
-        // A launch is dropped after its host has stopped.
+        // The host has stopped by now: `Host` stops it before it drops this,
+        // and a launch that failed drops its host child first.
         if let Some(licenses) = &self.licenses {
-            licenses.keep(&self.steam_directory());
+            licenses.keep();
         }
         let _ = fs::remove_dir_all(&self.run_directory);
     }
@@ -39,21 +40,23 @@ impl Prepared {
     /// Starts the client from the account's kept caches, lets it write them
     /// in its home, and keeps them again when the launch ends.
     pub fn enable_licenses(&mut self, cache: &Path, steam_id: u64) -> Result<(), Error> {
-        let licenses = LicenseCache::new(cache, steam_id)?;
-        let steam = self.steam_directory();
-        licenses.seed(&steam)?;
-        let [appcache, config] = licenses.folders(&steam);
-        self.append_rules(&format!(
-            "\n(allow file-read* (subpath {}))\n(allow file-write* (subpath {}) (subpath {}))\n",
-            quote(&self.home())?,
-            quote(&appcache)?,
-            quote(&config)?
-        ))?;
+        let licenses = LicenseCache::new(cache, steam_id, &self.steam_directory())?;
+        licenses.seed()?;
+        self.allow(&self.home(), licenses.folders())?;
         self.licenses = Some(licenses);
         Ok(())
     }
-    fn append_rules(&self, rules: &str) -> Result<(), Error> {
+    /// Lets the host read all of `read` and write in each of `writes`.
+    fn allow(&self, read: &Path, writes: &[PathBuf]) -> Result<(), Error> {
         use std::io::Write;
+        let mut rules = format!(
+            "\n(allow file-read* (subpath {}))\n(allow file-write*",
+            quote(read)?
+        );
+        for path in writes {
+            rules.push_str(&format!(" (subpath {})", quote(path)?));
+        }
+        rules.push_str(")\n");
         fs::OpenOptions::new()
             .append(true)
             .open(&self.profile)?
@@ -72,12 +75,7 @@ impl Prepared {
         // native host starts. Validate it without loading the game's SDK. SDK
         // quota/readback readiness now belongs to the game's own attachment.
         super::native_cache_files(app.clone(), storage.app_id, storage.platforms)?;
-        self.append_rules(&format!(
-            "\n(allow file-read* (subpath {}))\n(allow file-write* (subpath {}) (subpath {}))\n",
-            quote(&storage.home)?,
-            quote(&app)?,
-            quote(&steam.join("appcache"))?
-        ))?;
+        self.allow(&storage.home, &[app, steam.join("appcache")])?;
         self.storage = Some(storage.clone());
         Ok(())
     }
@@ -176,8 +174,8 @@ fn sandbox(config: &Config, directory: &Path) -> Result<String, Error> {
     }
     Ok(profile)
 }
-/// Replaces `path` atomically without fsync: diagnostics need no durability,
-/// unlike [`obelisk_core::write_atomic`].
+/// Replaces `path` atomically without fsync: diagnostics and caches need no
+/// durability, unlike [`obelisk_core::write_atomic`].
 pub(super) fn atomic_write(
     path: &Path,
     write: impl FnOnce(&mut std::fs::File) -> Result<(), Error>,
@@ -248,6 +246,47 @@ mod atomic_tests {
         }
     }
 
+    /// A launch of the runtime in `directory`, running in `run`.
+    #[cfg(target_os = "macos")]
+    fn launch(directory: &Path, run: &Path) -> Prepared {
+        fs::create_dir_all(run).unwrap();
+        Prepared {
+            directory: directory.into(),
+            run_directory: run.into(),
+            profile: run.join("profile"),
+            report: run.join("report"),
+            endpoints: Default::default(),
+            storage: None,
+            licenses: None,
+        }
+    }
+
+    /// Runs the access child under a sandbox profile that `sandbox-exec` takes
+    /// with `flag`, and checks that it passed.
+    #[cfg(target_os = "macos")]
+    fn run_sandboxed(
+        flag: &str,
+        profile: &std::ffi::OsStr,
+        root: &Path,
+        fixtures: &[(&str, &std::ffi::OsStr)],
+    ) {
+        let result = std::process::Command::new("/usr/bin/sandbox-exec")
+            .arg(flag)
+            .arg(profile)
+            .arg(std::env::current_exe().unwrap())
+            .args([
+                "steam::host::files::atomic_tests::sandbox_access_child",
+                "--exact",
+            ])
+            .env("OBELISK_SANDBOX_ACCESS_FIXTURE", root)
+            .envs(fixtures.iter().copied())
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8_lossy(&result.stdout);
+        assert!(result.status.success(), "{stdout}");
+        assert!(stdout.contains("1 passed"), "{stdout}");
+    }
+
     #[cfg(target_os = "macos")]
     #[test]
     fn sandbox_allows_runtime_path_resolution_but_denies_save_contents() {
@@ -275,32 +314,12 @@ mod atomic_tests {
             app_id: 42,
             cloud_save_roots: vec![],
         };
-        let executable = std::env::current_exe().unwrap();
         let profile = format!(
             "{}\n(allow process-exec (literal {}))",
             sandbox(&config, &runtime).unwrap(),
-            quote(&executable).unwrap()
+            quote(&std::env::current_exe().unwrap()).unwrap()
         );
-        let result = std::process::Command::new("/usr/bin/sandbox-exec")
-            .args(["-p", &profile])
-            .arg(executable)
-            .args([
-                "steam::host::files::atomic_tests::sandbox_access_child",
-                "--exact",
-            ])
-            .env("OBELISK_SANDBOX_ACCESS_FIXTURE", &root)
-            .output()
-            .unwrap();
-        assert!(
-            result.status.success(),
-            "{}",
-            String::from_utf8_lossy(&result.stdout)
-        );
-        assert!(
-            String::from_utf8_lossy(&result.stdout).contains("1 passed"),
-            "{}",
-            String::from_utf8_lossy(&result.stdout)
-        );
+        run_sandboxed("-p", std::ffi::OsStr::new(&profile), &root, &[]);
         let storage = NativeStorage {
             home: config.home.join("sdk"),
             account_id: 0x011000010000002a,
@@ -315,89 +334,34 @@ mod atomic_tests {
             .unwrap()
             .prepare_index(&[])
             .unwrap();
-        let run = root.join("run");
-        fs::create_dir_all(&run).unwrap();
-        let mut prepared = Prepared {
-            directory: runtime,
-            run_directory: run.clone(),
-            profile: run.join("profile"),
-            report: run.join("report"),
-            endpoints: Default::default(),
-            storage: None,
-            licenses: None,
-        };
+        let mut prepared = launch(&runtime, &root.join("run"));
         fs::write(&prepared.profile, &profile).unwrap();
         prepared.enable_storage(&storage).unwrap();
-        let result = std::process::Command::new("/usr/bin/sandbox-exec")
-            .args(["-f"])
-            .arg(&prepared.profile)
-            .arg(std::env::current_exe().unwrap())
-            .args([
-                "steam::host::files::atomic_tests::sandbox_access_child",
-                "--exact",
-            ])
-            .env("OBELISK_SANDBOX_ACCESS_FIXTURE", &root)
-            .env("OBELISK_SANDBOX_STORAGE_FIXTURE", "1")
-            .output()
-            .unwrap();
-        assert!(
-            result.status.success(),
-            "{}",
-            String::from_utf8_lossy(&result.stdout)
-        );
-        assert!(
-            String::from_utf8_lossy(&result.stdout).contains("1 passed"),
-            "{}",
-            String::from_utf8_lossy(&result.stdout)
+        run_sandboxed(
+            "-f",
+            prepared.profile.as_os_str(),
+            &root,
+            &[("OBELISK_SANDBOX_STORAGE_FIXTURE", std::ffi::OsStr::new("1"))],
         );
 
         // A launch's own home sits under the player's, like the real one: the
-        // client reads and writes its two caches there and nothing else.
-        let run = config.cache.join("launch-licenses");
-        fs::create_dir_all(&run).unwrap();
-        let mut launch = Prepared {
-            directory: config.helpers.clone(),
-            run_directory: run.clone(),
-            profile: run.join("profile"),
-            report: run.join("report"),
-            endpoints: Default::default(),
-            storage: None,
-            licenses: None,
-        };
+        // client reads and writes its caches there and nothing else.
+        let mut launch = launch(&runtime, &config.cache.join("launch-licenses"));
         let id = 0x011000010000002a;
-        LicenseCache::new(&root.join("kept"), id).unwrap();
-        fs::write(
-            root.join(format!("kept/account-{id}/packageinfo.vdf")),
-            b"kept",
-        )
-        .unwrap();
+        let kept = root.join("kept");
+        let cache = LicenseCache::new(&kept, id, &launch.steam_directory()).unwrap();
+        fs::write(cache.kept().join("packageinfo.vdf"), b"kept").unwrap();
         fs::write(&launch.profile, &profile).unwrap();
-        launch.enable_licenses(&root.join("kept"), id).unwrap();
+        launch.enable_licenses(&kept, id).unwrap();
         let steam = launch.steam_directory();
         for path in ["userdata/43/config", "config"] {
             fs::create_dir_all(steam.join(path)).unwrap();
         }
-        let result = std::process::Command::new("/usr/bin/sandbox-exec")
-            .args(["-f"])
-            .arg(&launch.profile)
-            .arg(std::env::current_exe().unwrap())
-            .args([
-                "steam::host::files::atomic_tests::sandbox_access_child",
-                "--exact",
-            ])
-            .env("OBELISK_SANDBOX_ACCESS_FIXTURE", &root)
-            .env("OBELISK_SANDBOX_LICENSES_FIXTURE", &steam)
-            .output()
-            .unwrap();
-        assert!(
-            result.status.success(),
-            "{}",
-            String::from_utf8_lossy(&result.stdout)
-        );
-        assert!(
-            String::from_utf8_lossy(&result.stdout).contains("1 passed"),
-            "{}",
-            String::from_utf8_lossy(&result.stdout)
+        run_sandboxed(
+            "-f",
+            launch.profile.as_os_str(),
+            &root,
+            &[("OBELISK_SANDBOX_LICENSES_FIXTURE", steam.as_os_str())],
         );
     }
 
