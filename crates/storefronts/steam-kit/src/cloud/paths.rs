@@ -85,6 +85,13 @@ fn canonical_root(name: &str) -> &str {
     }
 }
 
+// Publishers vary the case of an override's OS, as "macos".
+fn canonical_os(name: &str) -> Option<&'static str> {
+    ["MacOS", "Windows", "Linux"]
+        .into_iter()
+        .find(|os| name.eq_ignore_ascii_case(os))
+}
+
 fn rule_suffix(
     name: &str,
     root: &str,
@@ -201,10 +208,19 @@ pub(super) fn relative(value: &str, allow_empty: bool) -> Result<String, CloudEr
     Ok(value)
 }
 
+// Publishers vary the case of a placeholder, as {Steam3AccountId}.
 fn substitute(value: &str, steam_id: u64) -> String {
+    let mut value = value.to_owned();
+    for (placeholder, id) in [
+        ("{64bitsteamid}", steam_id.to_string()),
+        ("{steam3accountid}", (steam_id as u32).to_string()),
+    ] {
+        // ASCII lowercasing keeps byte offsets.
+        while let Some(start) = value.to_ascii_lowercase().find(placeholder) {
+            value.replace_range(start..start + placeholder.len(), &id);
+        }
+    }
     value
-        .replace("{64BitSteamID}", &steam_id.to_string())
-        .replace("{Steam3AccountID}", &(steam_id as u32).to_string())
 }
 
 impl AutoCloudPaths {
@@ -299,8 +315,11 @@ impl AutoCloudPaths {
                 if text(override_, "root")? != source_root {
                     continue;
                 }
-                let applies = match (text(override_, "os")?, text(override_, "oscompare")?) {
-                    (os @ ("MacOS" | "Windows" | "Linux"), "=") => os == platform.os(),
+                let applies = match (
+                    canonical_os(text(override_, "os")?),
+                    text(override_, "oscompare")?,
+                ) {
+                    (Some(os), "=") => os == platform.os(),
                     _ => return Err(CloudError::Invalid("unsupported Auto-Cloud OS comparison")),
                 };
                 if !applies {
@@ -668,6 +687,38 @@ mod tests {
     }
 
     #[test]
+    fn authenticated_publisher_fixtures_map_windows_paths() {
+        for (json, remote, local) in [
+            (
+                include_str!("fixtures/239030.json"),
+                "%WinAppDataRoaming%3909/PapersPlease/slot.sav",
+                "AppData/Roaming/3909/PapersPlease/slot.sav",
+            ),
+            (
+                include_str!("fixtures/1888930.json"),
+                "%WinSavedGames%The Last of Us Part I/users/42/savedata/slot",
+                "Saved Games/The Last of Us Part I/users/42/savedata/slot",
+            ),
+        ] {
+            let metadata = serde_json::from_str(json).unwrap();
+            let profile = Path::new("/Prefix/drive_c/users/crossover");
+            let resolver = AutoCloudPaths::new(
+                &metadata,
+                0x011000010000002a,
+                &CloudPlatform::Windows {
+                    profile: profile.into(),
+                },
+                Path::new("/Games/fixture"),
+            )
+            .unwrap();
+            assert_eq!(
+                resolver.destination(remote, 1).unwrap(),
+                Some(profile.join(local))
+            );
+        }
+    }
+
+    #[test]
     fn lowercase_gameinstall_uses_canonical_remote_root_and_addpath() {
         for (json, remote, destination) in [
             (
@@ -679,6 +730,11 @@ mod tests {
                 include_str!("fixtures/1585220.json"),
                 "%GameInstall%save.json",
                 "/Games/fixture/save.json",
+            ),
+            (
+                include_str!("fixtures/200710.json"),
+                "%WinMyDocuments%my games/runic games/torchlight 2/save/76561197960265770/slot.svb",
+                "/Games/fixture/my games/runic games/torchlight 2/save/76561197960265770/slot.svb",
             ),
         ] {
             let metadata = serde_json::from_str(json).unwrap();
