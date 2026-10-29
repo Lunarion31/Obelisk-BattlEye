@@ -177,6 +177,15 @@ impl Rule {
     }
 }
 
+/// The platforms of a rule, by Steam's bits (4 is PS3, not Linux), whose lookup
+/// of the name ignores case.
+const PLATFORMS: [(&str, u32); 4] = [
+    ("Windows", 1),
+    ("MacOS", 2),
+    ("Linux", 8),
+    ("all", u32::MAX),
+];
+
 fn platforms(save: &CloudMetadata) -> Result<u32, CloudError> {
     let Some(platforms) = save.field("platforms") else {
         return Ok(u32::MAX);
@@ -190,13 +199,15 @@ fn platforms(save: &CloudMetadata) -> Result<u32, CloudError> {
         if !keys.insert(key) {
             return Err(CloudError::Invalid("duplicate Auto-Cloud platform"));
         }
-        mask |= match value.text() {
-            Some("all") => u32::MAX,
-            Some("Windows") => 1,
-            Some("MacOS") => 2,
-            Some("Linux") => 4,
-            _ => return Err(CloudError::Invalid("unsupported Auto-Cloud platform")),
-        };
+        mask |= value
+            .text()
+            .and_then(|text| {
+                PLATFORMS
+                    .iter()
+                    .find(|(name, _)| name.eq_ignore_ascii_case(text))
+            })
+            .map(|&(_, bit)| bit)
+            .ok_or(CloudError::Invalid("unsupported Auto-Cloud platform"))?;
     }
     if mask == 0 {
         return Err(CloudError::Invalid("empty Auto-Cloud platforms"));
@@ -1193,6 +1204,29 @@ mod tests {
                 .is_err()
             );
         }
+    }
+    #[test]
+    fn platforms_are_steams_bits_whatever_the_case_of_their_names() {
+        let mask = |names: &[&str]| {
+            let list = CloudMetadata::Object(
+                names
+                    .iter()
+                    .enumerate()
+                    .map(|(index, name)| (index.to_string(), value(name)))
+                    .collect(),
+            );
+            platforms(&object(vec![("platforms", list)]))
+        };
+        assert_eq!(mask(&["Windows"]).unwrap(), 1);
+        assert_eq!(mask(&["MacOS"]).unwrap(), 2);
+        // 4 is PS3, which a rule's Linux must not claim.
+        assert_eq!(mask(&["Linux"]).unwrap(), 8);
+        assert_eq!(mask(&["Windows", "Linux"]).unwrap(), 9);
+        assert_eq!(mask(&["windows", "MACOS", "linux"]).unwrap(), 11);
+        assert_eq!(mask(&["all"]).unwrap(), u32::MAX);
+        assert_eq!(mask(&["All"]).unwrap(), u32::MAX);
+        assert_eq!(platforms(&object(vec![])).unwrap(), u32::MAX);
+        assert!(mask(&["PS3"]).is_err());
     }
     fn value(s: &str) -> CloudMetadata {
         CloudMetadata::Value(s.into())
