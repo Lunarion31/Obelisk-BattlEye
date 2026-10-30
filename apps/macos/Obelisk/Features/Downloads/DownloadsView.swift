@@ -48,7 +48,7 @@ enum DownloadFormatting {
         case .bytes:
             return L10n.string("ui.downloads.speed", size(UInt64(max(0, bytesPerSecond))))
         case .bits:
-            let megabits = max(0, bytesPerSecond) * 8 / 1_000_000
+            let megabits = max(0, bytesPerSecond) / Double(DownloadSpeedUnit.bytesPerMegabit)
             return L10n.string("ui.downloads.speed_bits",
                                megabits.formatted(.number.precision(.fractionLength(0...1)).locale(L10n.locale)))
         }

@@ -1424,8 +1424,8 @@ public protocol DownloadsProtocol: AnyObject, Sendable {
     func resume(id: UInt64) 
     
     /**
-     * Limits what every storefront downloads, in bytes per second; zero lifts
-     * the limit. It applies at once, to the Transfer under way too.
+     * Limits what every storefront downloads, in bytes per second: see
+     * `obelisk_core::transfer::set_speed_limit`.
      */
     func setSpeedLimit(bytesPerSecond: UInt64) 
     
@@ -1562,8 +1562,8 @@ open func resume(id: UInt64)  {try! rustCall() {
 }
     
     /**
-     * Limits what every storefront downloads, in bytes per second; zero lifts
-     * the limit. It applies at once, to the Transfer under way too.
+     * Limits what every storefront downloads, in bytes per second: see
+     * `obelisk_core::transfer::set_speed_limit`.
      */
 open func setSpeedLimit(bytesPerSecond: UInt64)  {try! rustCall() {
         uniffiCallStatus in
@@ -16255,7 +16255,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_obelisk_bridge_checksum_method_downloads_resume() != 2894) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_obelisk_bridge_checksum_method_downloads_set_speed_limit() != 58888) {
+    if (uniffi_obelisk_bridge_checksum_method_downloads_set_speed_limit() != 54904) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_obelisk_bridge_checksum_method_downloads_state() != 47105) {

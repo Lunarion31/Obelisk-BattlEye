@@ -148,7 +148,8 @@ struct SettingsView: View {
     /// The downloads' own settings, in one row: the speed every store may
     /// download at, and the unit speeds read in, which the limit follows.
     private var downloadSettings: some View {
-        ObeliskRow(title: L10n.string("ui.settings.downloads")) {
+        let limit = downloadSpeedLimitLabel
+        return ObeliskRow(title: L10n.string("ui.settings.downloads")) {
             SymbolTile(name: "speedometer", colors: TileColors.blue)
         } detail: {
             Text(L10n.string("ui.settings.downloads_description"))
@@ -160,14 +161,13 @@ struct SettingsView: View {
                 ), in: 0...Double(model.downloads.speedUnit.speedLimits.count - 1), step: 1)
                     .frame(width: 150)
                     .accessibilityLabel(L10n.string("ui.settings.download_speed_limit"))
-                    .accessibilityValue(downloadSpeedLimitLabel)
+                    .accessibilityValue(limit)
                     .accessibilityIdentifier("settings-download-speed-limit")
-                Text(downloadSpeedLimitLabel)
+                Text(limit)
                     .monospacedDigit()
                     .frame(width: 90, alignment: .leading)
                 Picker(L10n.string("ui.settings.download_speed_unit"), selection: Bindable(model.downloads).speedUnit) {
-                    Text(L10n.string("ui.settings.download_speed_unit_bytes")).tag(DownloadSpeedUnit.bytes)
-                    Text(L10n.string("ui.settings.download_speed_unit_bits")).tag(DownloadSpeedUnit.bits)
+                    ForEach(DownloadSpeedUnit.allCases) { Text($0.title).tag($0) }
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)

@@ -6,7 +6,6 @@ mod pace;
 mod window;
 pub use body::{
     BodyError, BodySize, CHUNK_DEADLINE, CHUNK_STALL, NETWORK_RETRY_WAITS, chunk_parts, read_body,
-    unless_stalled,
 };
 pub use engine::{Chunks, Delivery, Interrupted, Pipeline, run_engine};
 pub use lifecycle::{TransferBusy, TransferContext, TransferStatus, Transfers};

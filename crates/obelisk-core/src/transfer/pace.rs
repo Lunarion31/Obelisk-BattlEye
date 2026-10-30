@@ -17,12 +17,14 @@ use tokio::time::{Instant, sleep_until};
 
 static PACE: Pace = Pace::new();
 
+/// The lowest limit that holds. The requests in flight divide a limit among
+/// them and each must still end within [`CHUNK_DEADLINE`](super::CHUNK_DEADLINE),
+/// which a lower one could not allow.
+const MIN_SPEED_LIMIT: u64 = 625_000;
+
 /// Limits what every storefront downloads, in bytes per second; zero lifts the
-/// limit.
-///
-/// A limit divides among the requests in flight, each of which must still end
-/// within [`CHUNK_DEADLINE`](super::CHUNK_DEADLINE): at the lowest the app
-/// offers, 625 kB/s, GOG's 16 requests of up to 10 MiB end in under half of it.
+/// limit and a limit below the lowest that holds is raised to it. It applies
+/// at once, to the Transfer under way too.
 pub fn set_speed_limit(bytes_per_second: u64) {
     PACE.limit(bytes_per_second);
 }
@@ -50,6 +52,10 @@ impl Pace {
     }
 
     fn limit(&self, bytes_per_second: u64) {
+        let bytes_per_second = match bytes_per_second {
+            0 => 0,
+            limit => limit.max(MIN_SPEED_LIMIT),
+        };
         self.bytes_per_second
             .store(bytes_per_second, Ordering::Relaxed);
         // What was reserved at the old pace is no debt at the new one.
@@ -77,7 +83,8 @@ impl Pace {
         }
         let passed = {
             let mut next = self.lock();
-            let start = next.map_or_else(Instant::now, |next| next.max(Instant::now()));
+            let now = Instant::now();
+            let start = next.map_or(now, |next| next.max(now));
             let passed = start + Duration::from_secs_f64(bytes as f64 / rate as f64);
             *next = Some(passed);
             passed
@@ -96,9 +103,9 @@ mod tests {
 
     use super::*;
 
-    /// 125 kB/s, and the 12.5 kB that pass in a tenth of a second at it.
-    const RATE: u64 = 125_000;
-    const TENTH: usize = 12_500;
+    /// The lowest limit, and the bytes that pass in a tenth of a second at it.
+    const RATE: u64 = MIN_SPEED_LIMIT;
+    const TENTH: usize = (RATE / 10) as usize;
 
     fn limited(bytes_per_second: u64) -> Pace {
         let pace = Pace::new();
@@ -143,10 +150,14 @@ mod tests {
         let start = Instant::now();
         pace.pass(TENTH).await;
         assert_eq!(start.elapsed(), Duration::from_millis(50));
-        pace.limit(0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn a_limit_below_the_lowest_that_holds_is_raised_to_it() {
+        let pace = limited(1);
         let start = Instant::now();
-        pace.pass(100 * TENTH).await;
-        assert_eq!(start.elapsed(), Duration::ZERO);
+        pace.pass(MIN_SPEED_LIMIT as usize).await;
+        assert_eq!(start.elapsed(), Duration::from_secs(1));
     }
 
     #[tokio::test(start_paused = true)]

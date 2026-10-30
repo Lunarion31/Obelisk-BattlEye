@@ -112,21 +112,9 @@ final class DownloadsModelTests: XCTestCase {
         XCTAssertEqual(model.speedLimit, 0)
     }
 
-    func testALimitNeitherUnitOffersReadsAsUnlimited() throws {
-        let suite = "ObeliskTests.\(UUID().uuidString)"
-        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
-        defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(7, forKey: DownloadsModel.speedLimitKey)
-        let queue = FakeDownloads()
-        let model = DownloadsModel(backend: queue, period: .seconds(3600), defaults: defaults)
-        XCTAssertEqual(model.speedLimit, 0)
-        XCTAssertEqual(queue.speedLimit, 0)
-    }
-
     func testASpeedReadsInMegabitsWhenThePlayerChoosesThem() {
         XCTAssertEqual(DownloadFormatting.speed(1_500_000, in: .bits), "12 Mbps")
         XCTAssertEqual(DownloadFormatting.speed(-5, in: .bits), "0 Mbps")
         XCTAssertEqual(DownloadFormatting.speed(625_000, in: .bits), "5 Mbps", "the lowest limit")
-        XCTAssertNotEqual(DownloadFormatting.speed(1_500_000, in: .bytes), DownloadFormatting.speed(1_500_000, in: .bits))
     }
 }

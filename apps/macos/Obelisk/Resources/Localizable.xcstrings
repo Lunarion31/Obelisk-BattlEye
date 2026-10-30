@@ -10209,7 +10209,7 @@
         }
       }
     },
-    "ui.settings.download_speed_unit_bytes": {
+    "model.downloads.speed_unit_bytes": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10232,7 +10232,7 @@
         }
       }
     },
-    "ui.settings.download_speed_unit_bits": {
+    "model.downloads.speed_unit_bits": {
       "extractionState": "manual",
       "localizations": {
         "en": {

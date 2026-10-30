@@ -110,7 +110,7 @@ pub async fn read_body<B: AsRef<[u8]>, X>(
 /// that stopped delivering fails that soon, while a slow one keeps going
 /// however long its body takes. A stall and a transport error are alike to
 /// [`read_body`], which stops at either.
-pub fn unless_stalled<B, X>(
+fn unless_stalled<B, X>(
     parts: impl Stream<Item = Result<B, X>>,
     stall: Duration,
 ) -> impl Stream<Item = Result<B, ()>> {
@@ -125,7 +125,7 @@ pub fn unless_stalled<B, X>(
 
 /// The parts of a storefront's content response as every storefront reads
 /// them: a connection that stalls fails, and the player's speed limit holds
-/// the pace. A storefront's content requests read their bodies through it.
+/// the pace.
 pub fn chunk_parts<B: AsRef<[u8]>, X>(
     parts: impl Stream<Item = Result<B, X>>,
 ) -> impl Stream<Item = Result<B, ()>> {

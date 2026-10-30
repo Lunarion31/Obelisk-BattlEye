@@ -12,8 +12,7 @@ protocol DownloadsBackend: AnyObject {
     func pause(_ id: UInt64)
     func resume(_ id: UInt64)
     func moveToTop(_ id: UInt64)
-    /// Limits what every storefront downloads, in bytes per second; zero lifts
-    /// the limit. It applies at once, to the Transfer under way too.
+    /// In bytes per second; zero lifts the limit.
     func setSpeedLimit(_ bytesPerSecond: UInt64)
 }
 
@@ -31,18 +30,30 @@ final class RustDownloads: DownloadsBackend {
 }
 
 /// The unit download speeds read in.
-enum DownloadSpeedUnit: String {
+enum DownloadSpeedUnit: String, CaseIterable, Identifiable {
     /// The file sizes Finder shows, per second.
     case bytes
     case bits
 
+    static let bytesPerMegabit = 125_000
+    private static let byteLimits = [1, 2, 5, 10, 25, 50, 100].map { $0 * 1_000_000 } + [0]
+    private static let bitLimits = [5, 10, 25, 50, 100, 250, 500, 1000].map { $0 * bytesPerMegabit } + [0]
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .bytes: L10n.string("model.downloads.speed_unit_bytes")
+        case .bits: L10n.string("model.downloads.speed_unit_bits")
+        }
+    }
+
     /// The limits the player picks the speed from in this unit, in bytes per
-    /// second, ending with none (zero). Below the lowest, 625 kB/s, a store's
-    /// requests could outlast their deadline: see `set_speed_limit` in Rust.
+    /// second, ending with none (zero). None goes below the lowest limit Rust
+    /// holds to: see `set_speed_limit`.
     var speedLimits: [Int] {
         switch self {
-        case .bytes: [1, 2, 5, 10, 25, 50, 100].map { $0 * 1_000_000 } + [0]
-        case .bits: [5, 10, 25, 50, 100, 250, 500, 1000].map { $0 * 125_000 } + [0]
+        case .bytes: Self.byteLimits
+        case .bits: Self.bitLimits
         }
     }
 }
@@ -72,7 +83,7 @@ final class DownloadsModel {
         didSet { defaults.set(speedUnit.rawValue, forKey: Self.speedUnitKey) }
     }
     /// The most every storefront may download in all, in bytes per second;
-    /// zero leaves it unlimited. It applies at once.
+    /// zero leaves it unlimited.
     var speedLimit: Int {
         didSet {
             defaults.set(speedLimit, forKey: Self.speedLimitKey)
@@ -104,9 +115,7 @@ final class DownloadsModel {
         self.period = period
         self.defaults = defaults
         speedUnit = defaults.string(forKey: Self.speedUnitKey).flatMap(DownloadSpeedUnit.init) ?? .bytes
-        let limit = defaults.integer(forKey: Self.speedLimitKey)
-        speedLimit = (DownloadSpeedUnit.bytes.speedLimits + DownloadSpeedUnit.bits.speedLimits).contains(limit)
-            ? limit : 0
+        speedLimit = max(0, defaults.integer(forKey: Self.speedLimitKey))
         backend.setSpeedLimit(UInt64(speedLimit))
         apply(backend.state())
         observation = Task { [weak self, backend] in
