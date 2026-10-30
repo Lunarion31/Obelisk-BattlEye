@@ -164,7 +164,7 @@ struct SettingsView: View {
                     .accessibilityIdentifier("settings-download-speed-limit")
                 Text(downloadSpeedLimitLabel)
                     .monospacedDigit()
-                    .frame(width: 90, alignment: .trailing)
+                    .frame(width: 90, alignment: .leading)
                 Picker(L10n.string("ui.settings.download_speed_unit"), selection: Bindable(model.downloads).speedUnit) {
                     Text(L10n.string("ui.settings.download_speed_unit_bytes")).tag(DownloadSpeedUnit.bytes)
                     Text(L10n.string("ui.settings.download_speed_unit_bits")).tag(DownloadSpeedUnit.bits)
