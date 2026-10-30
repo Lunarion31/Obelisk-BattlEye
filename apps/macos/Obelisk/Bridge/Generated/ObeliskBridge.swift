@@ -1423,6 +1423,12 @@ public protocol DownloadsProtocol: AnyObject, Sendable {
     
     func resume(id: UInt64) 
     
+    /**
+     * Limits what every storefront downloads, in bytes per second: see
+     * `obelisk_core::transfer::set_speed_limit`.
+     */
+    func setSpeedLimit(bytesPerSecond: UInt64) 
+    
     func state()  -> DownloadQueueState
     
 }
@@ -1551,6 +1557,19 @@ open func resume(id: UInt64)  {try! rustCall() {
     uniffi_obelisk_bridge_fn_method_downloads_resume(
             self.uniffiCloneHandle(),
         FfiConverterUInt64.lower(id),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Limits what every storefront downloads, in bytes per second: see
+     * `obelisk_core::transfer::set_speed_limit`.
+     */
+open func setSpeedLimit(bytesPerSecond: UInt64)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_obelisk_bridge_fn_method_downloads_set_speed_limit(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(bytesPerSecond),uniffiCallStatus
     )
 }
 }
@@ -16234,6 +16253,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_obelisk_bridge_checksum_method_downloads_resume() != 2894) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_obelisk_bridge_checksum_method_downloads_set_speed_limit() != 54904) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_obelisk_bridge_checksum_method_downloads_state() != 47105) {

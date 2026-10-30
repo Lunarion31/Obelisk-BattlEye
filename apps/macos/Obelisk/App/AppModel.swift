@@ -107,7 +107,7 @@ final class AppModel {
         self.overlay = GameOverlayController(steam: self.steam, epic: self.epic, gog: self.gog, environment: overlay)
         self.steam.overlay = self.overlay
         self.steam.notifier = overlay.notifier
-        self.downloads = downloads ?? DownloadsModel()
+        self.downloads = downloads ?? DownloadsModel(defaults: defaults)
         self.gamesFolder = gamesFolder ?? GamesFolderModel(library: directory)
         let performance = performance ?? PerformanceReports(isEnabled: sharesGamePerformance)
         performance.isEnabled = sharesGamePerformance

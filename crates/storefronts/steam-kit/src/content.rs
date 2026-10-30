@@ -499,7 +499,7 @@ impl ContentClient {
         }
         let bytes = transfer::read_body(
             response.content_length(),
-            transfer::unless_stalled(response.bytes_stream(), transfer::CHUNK_STALL),
+            transfer::chunk_parts(response.bytes_stream()),
             BodySize::AtMost(limit as u64),
             cancel,
             on_bytes,

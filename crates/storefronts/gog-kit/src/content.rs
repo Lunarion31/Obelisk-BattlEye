@@ -327,7 +327,7 @@ async fn fetch(
     }
     Ok(transfer::read_body(
         response.content_length(),
-        transfer::unless_stalled(response.bytes_stream(), transfer::CHUNK_STALL),
+        transfer::chunk_parts(response.bytes_stream()),
         BodySize::Exactly(expected),
         cancel,
         |length| {

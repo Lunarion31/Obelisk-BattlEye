@@ -46,6 +46,8 @@ struct SettingsView: View {
                         ObeliskCard {
                             automaticUpdates
                             ObeliskCardDivider()
+                            downloadSettings
+                            ObeliskCardDivider()
                             overlay
                             ObeliskCardDivider()
                             sharePerformance
@@ -141,6 +143,44 @@ struct SettingsView: View {
                 .pointerCursor()
                 .accessibilityIdentifier("settings-update-automatically")
         }
+    }
+
+    /// The downloads' own settings, in one row: the speed every store may
+    /// download at, and the unit speeds read in, which the limit follows.
+    private var downloadSettings: some View {
+        let limit = downloadSpeedLimitLabel
+        return ObeliskRow(title: L10n.string("ui.settings.downloads")) {
+            SymbolTile(name: "speedometer", colors: TileColors.blue)
+        } detail: {
+            Text(L10n.string("ui.settings.downloads_description"))
+        } accessory: {
+            HStack(spacing: 10) {
+                Slider(value: Binding(
+                    get: { Double(model.downloads.speedLimitChoice) },
+                    set: { model.downloads.speedLimitChoice = Int($0.rounded()) }
+                ), in: 0...Double(model.downloads.speedUnit.speedLimits.count - 1), step: 1)
+                    .frame(width: 150)
+                    .accessibilityLabel(L10n.string("ui.settings.download_speed_limit"))
+                    .accessibilityValue(limit)
+                    .accessibilityIdentifier("settings-download-speed-limit")
+                Text(limit)
+                    .monospacedDigit()
+                    .frame(width: 90, alignment: .leading)
+                Picker(L10n.string("ui.settings.download_speed_unit"), selection: Bindable(model.downloads).speedUnit) {
+                    ForEach(DownloadSpeedUnit.allCases) { Text($0.title).tag($0) }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .fixedSize()
+                .accessibilityIdentifier("settings-download-speed-unit")
+            }
+        }
+    }
+
+    private var downloadSpeedLimitLabel: String {
+        let downloads = model.downloads
+        return downloads.speedLimit == 0 ? L10n.string("ui.settings.download_speed_limit_unlimited")
+            : DownloadFormatting.speed(Double(downloads.speedLimit), in: downloads.speedUnit)
     }
 
     private var sharePerformance: some View {

@@ -2,13 +2,14 @@
 mod body;
 mod engine;
 mod lifecycle;
+mod pace;
 mod window;
 pub use body::{
-    BodyError, BodySize, CHUNK_DEADLINE, CHUNK_STALL, NETWORK_RETRY_WAITS, read_body,
-    unless_stalled,
+    BodyError, BodySize, CHUNK_DEADLINE, CHUNK_STALL, NETWORK_RETRY_WAITS, chunk_parts, read_body,
 };
 pub use engine::{Chunks, Delivery, Interrupted, Pipeline, run_engine};
 pub use lifecycle::{TransferBusy, TransferContext, TransferStatus, Transfers};
+pub use pace::set_speed_limit;
 pub use window::Window;
 
 use std::{
