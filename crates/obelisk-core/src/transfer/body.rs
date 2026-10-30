@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use futures_util::{Stream, StreamExt, stream};
 
-use super::{CancelToken, Cancelled};
+use super::{CancelToken, Cancelled, pace::paced};
 
 /// How long a chunk's server may send nothing before its request fails. A
 /// whole-request timeout instead failed every chunk on a slow link: there,
@@ -121,6 +121,15 @@ pub fn unless_stalled<B, X>(
             Err(_) => Some((Err(()), parts)),
         }
     })
+}
+
+/// The parts of a storefront's content response as every storefront reads
+/// them: a connection that stalls fails, and the player's speed limit holds
+/// the pace. A storefront's content requests read their bodies through it.
+pub fn chunk_parts<B: AsRef<[u8]>, X>(
+    parts: impl Stream<Item = Result<B, X>>,
+) -> impl Stream<Item = Result<B, ()>> {
+    paced(unless_stalled(parts, CHUNK_STALL))
 }
 
 #[cfg(test)]

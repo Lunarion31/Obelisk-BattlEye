@@ -10094,53 +10094,53 @@
         }
       }
     },
-    "ui.settings.steam_speed_limit": {
+    "ui.settings.download_speed_limit": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Steam download speed limit"
+            "value": "Download speed limit"
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limite de téléchargement Steam"
+            "value": "Limite de vitesse de téléchargement"
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Limite di download Steam"
+            "value": "Limite di velocità di download"
           }
         }
       }
     },
-    "ui.settings.steam_speed_limit_description": {
+    "ui.settings.download_speed_limit_description": {
       "extractionState": "manual",
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Applies to the next Steam download. Mbps means megabits per second."
+            "value": "Applies to the downloads of every store, right away. Mbps means megabits per second."
           }
         },
         "fr": {
           "stringUnit": {
             "state": "translated",
-            "value": "S’applique au prochain téléchargement Steam. Mbps signifie mégabits par seconde."
+            "value": "S’applique aux téléchargements de toutes les boutiques, immédiatement. Mbps signifie mégabits par seconde."
           }
         },
         "it": {
           "stringUnit": {
             "state": "translated",
-            "value": "Si applica al prossimo download Steam. Mbps indica megabit al secondo."
+            "value": "Si applica ai download di ogni store, subito. Mbps indica megabit al secondo."
           }
         }
       }
     },
-    "ui.settings.steam_speed_limit_unlimited": {
+    "ui.settings.download_speed_limit_unlimited": {
       "extractionState": "manual",
       "localizations": {
         "en": {
@@ -10163,7 +10163,7 @@
         }
       }
     },
-    "ui.settings.steam_speed_limit_value": {
+    "ui.settings.download_speed_limit_value": {
       "extractionState": "manual",
       "localizations": {
         "en": {

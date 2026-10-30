@@ -68,35 +68,35 @@ final class DownloadsModelTests: XCTestCase {
         XCTAssertTrue(model.samples.isEmpty)
     }
 
-    func testTheSteamSpeedLimitReachesRustAndTheUnitAndTheLimitAreRemembered() throws {
+    func testTheSpeedLimitReachesRustAndTheUnitAndTheLimitAreRemembered() throws {
         let suite = "ObeliskTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
         let queue = FakeDownloads()
         let model = DownloadsModel(backend: queue, period: .seconds(3600), defaults: defaults)
         XCTAssertEqual(model.speedUnit, .bytes)
-        XCTAssertEqual(model.steamSpeedLimit, 0, "Steam is unlimited until the player limits it")
+        XCTAssertEqual(model.speedLimit, 0, "downloads are unlimited until the player limits them")
 
-        model.steamSpeedLimit = 25
+        model.speedLimit = 25
         model.speedUnit = .bits
-        XCTAssertEqual(queue.steamSpeedLimit, 25)
+        XCTAssertEqual(queue.speedLimit, 25)
 
         let next = FakeDownloads()
         let reopened = DownloadsModel(backend: next, period: .seconds(3600), defaults: defaults)
         XCTAssertEqual(reopened.speedUnit, .bits)
-        XCTAssertEqual(reopened.steamSpeedLimit, 25)
-        XCTAssertEqual(next.steamSpeedLimit, 25, "a new start limits Steam again")
+        XCTAssertEqual(reopened.speedLimit, 25)
+        XCTAssertEqual(next.speedLimit, 25, "a new start limits downloads again")
     }
 
     func testALimitTheSliderDoesNotOfferReadsAsUnlimited() throws {
         let suite = "ObeliskTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set(7, forKey: DownloadsModel.steamSpeedLimitKey)
+        defaults.set(7, forKey: DownloadsModel.speedLimitKey)
         let queue = FakeDownloads()
         let model = DownloadsModel(backend: queue, period: .seconds(3600), defaults: defaults)
-        XCTAssertEqual(model.steamSpeedLimit, 0)
-        XCTAssertEqual(queue.steamSpeedLimit, 0)
+        XCTAssertEqual(model.speedLimit, 0)
+        XCTAssertEqual(queue.speedLimit, 0)
     }
 
     func testASpeedReadsInMegabitsWhenThePlayerChoosesThem() {

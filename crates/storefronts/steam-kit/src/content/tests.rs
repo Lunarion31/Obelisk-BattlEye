@@ -649,7 +649,6 @@ impl CdnFixture {
 fn serving(fixtures: &[(&str, &CdnFixture)]) -> ContentClient {
     ContentClient {
         client: Client::new(),
-        limiter: Arc::new(SpeedLimiter::at(0)),
         test_endpoints: fixtures
             .iter()
             .map(|(host, fixture)| ((*host).to_string(), fixture.endpoint.clone()))
@@ -872,36 +871,6 @@ async fn an_empty_file_listed_with_a_zero_checksum_installs_and_verifies() {
         assert_eq!(result.completed_files, 1);
         assert_eq!(fs::read(directory.path().join("empty.dat")).unwrap(), b"");
     }
-}
-
-#[tokio::test]
-async fn a_download_keeps_to_the_speed_limit() {
-    let directory = tempfile::tempdir().unwrap();
-    // Bytes that do not compress: the network carries as many as the file holds.
-    let mut state = 0x2545_f491_4f6c_dd1d_u64;
-    let program: Vec<u8> = (0..125_000)
-        .map(|_| {
-            state ^= state << 13;
-            state ^= state >> 7;
-            state ^= state << 17;
-            state as u8
-        })
-        .collect();
-    let pieces: &[&[u8]] = &[&program];
-    let fixture = CdnFixture::new(routes(file("bin/game.exe", pieces), pieces));
-    let mut client = fixture.client();
-    // Two megabits per second carry 125 kB in half a second.
-    client.limiter = Arc::new(SpeedLimiter::at(2));
-    let start = Instant::now();
-    client
-        .download_depot(&plan(directory.path()), &CancelToken::new(), |_| {})
-        .await
-        .unwrap();
-    assert!(start.elapsed() >= Duration::from_millis(500));
-    assert_eq!(
-        fs::read(directory.path().join("bin/game.exe")).unwrap(),
-        program
-    );
 }
 
 #[tokio::test]

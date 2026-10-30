@@ -129,9 +129,9 @@ impl Downloads {
         self.queue.move_to_top(id)
     }
 
-    /// Limits what Steam downloads, in megabits per second; zero lifts the
-    /// limit. The Transfers that start from now on keep to it.
-    pub fn set_steam_speed_limit(&self, megabits_per_second: u64) {
-        steam_kit::content::set_speed_limit(megabits_per_second)
+    /// Limits what every storefront downloads, in megabits per second; zero
+    /// lifts the limit. It applies at once, to the Transfer under way too.
+    pub fn set_speed_limit(&self, megabits_per_second: u64) {
+        obelisk_core::transfer::set_speed_limit(megabits_per_second)
     }
 }

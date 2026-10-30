@@ -252,7 +252,7 @@ impl ContentClient {
         // estimate (see decode_chunk).
         Ok(transfer::read_body(
             response.content_length(),
-            transfer::unless_stalled(response.bytes_stream(), transfer::CHUNK_STALL),
+            transfer::chunk_parts(response.bytes_stream()),
             BodySize::AtMost((MAX_CHUNK_BYTES + 98) as u64),
             cancel,
             |count| {

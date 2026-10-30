@@ -12,9 +12,9 @@ protocol DownloadsBackend: AnyObject {
     func pause(_ id: UInt64)
     func resume(_ id: UInt64)
     func moveToTop(_ id: UInt64)
-    /// Limits what Steam downloads, in megabits per second; zero lifts the
-    /// limit. The Transfers that start from now on keep to it.
-    func setSteamSpeedLimit(_ megabitsPerSecond: UInt64)
+    /// Limits what every storefront downloads, in megabits per second; zero
+    /// lifts the limit. It applies at once, to the Transfer under way too.
+    func setSpeedLimit(_ megabitsPerSecond: UInt64)
 }
 
 /// The queue every account's installations share in Rust.
@@ -27,9 +27,7 @@ final class RustDownloads: DownloadsBackend {
     func pause(_ id: UInt64) { core.pause(id: id) }
     func resume(_ id: UInt64) { core.resume(id: id) }
     func moveToTop(_ id: UInt64) { core.moveToTop(id: id) }
-    func setSteamSpeedLimit(_ megabitsPerSecond: UInt64) {
-        core.setSteamSpeedLimit(megabitsPerSecond: megabitsPerSecond)
-    }
+    func setSpeedLimit(_ megabitsPerSecond: UInt64) { core.setSpeedLimit(megabitsPerSecond: megabitsPerSecond) }
 }
 
 /// The unit download speeds read in.
@@ -63,12 +61,12 @@ final class DownloadsModel {
     var speedUnit: DownloadSpeedUnit {
         didSet { defaults.set(speedUnit.rawValue, forKey: Self.speedUnitKey) }
     }
-    /// The most Steam may download, in megabits per second; zero leaves it
-    /// unlimited. The Transfers that start from now on keep to it.
-    var steamSpeedLimit: Int {
+    /// The most every storefront may download in all, in megabits per second;
+    /// zero leaves it unlimited. It applies at once.
+    var speedLimit: Int {
         didSet {
-            defaults.set(steamSpeedLimit, forKey: Self.steamSpeedLimitKey)
-            backend.setSteamSpeedLimit(UInt64(steamSpeedLimit))
+            defaults.set(speedLimit, forKey: Self.speedLimitKey)
+            backend.setSpeedLimit(UInt64(speedLimit))
         }
     }
 
@@ -77,11 +75,12 @@ final class DownloadsModel {
 
     /// How many samples the speed graph keeps.
     static let sampleLimit = 120
-    /// The limits the player picks Steam's speed from, in megabits per second;
-    /// zero is none.
-    static let steamSpeedLimits = [5, 10, 25, 50, 100, 250, 500, 1000, 0]
+    /// The limits the player picks the speed from, in megabits per second;
+    /// zero is none. Below the lowest, a store's requests could outlast their
+    /// deadline: see `set_speed_limit` in Rust.
+    static let speedLimits = [5, 10, 25, 50, 100, 250, 500, 1000, 0]
     static let speedUnitKey = "obelisk.downloads.speedUnit"
-    static let steamSpeedLimitKey = "obelisk.downloads.steamSpeedLimit"
+    static let speedLimitKey = "obelisk.downloads.speedLimit"
 
     @ObservationIgnored private let backend: any DownloadsBackend
     @ObservationIgnored private let defaults: UserDefaults
@@ -99,9 +98,9 @@ final class DownloadsModel {
         self.period = period
         self.defaults = defaults
         speedUnit = defaults.string(forKey: Self.speedUnitKey).flatMap(DownloadSpeedUnit.init) ?? .bytes
-        let limit = defaults.integer(forKey: Self.steamSpeedLimitKey)
-        steamSpeedLimit = Self.steamSpeedLimits.contains(limit) ? limit : 0
-        backend.setSteamSpeedLimit(UInt64(steamSpeedLimit))
+        let limit = defaults.integer(forKey: Self.speedLimitKey)
+        speedLimit = Self.speedLimits.contains(limit) ? limit : 0
+        backend.setSpeedLimit(UInt64(speedLimit))
         apply(backend.state())
         observation = Task { [weak self, backend] in
             var after = self?.revision ?? 0

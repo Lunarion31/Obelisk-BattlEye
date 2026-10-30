@@ -5,12 +5,10 @@
 //! Path confinement, locking, hashing and progress reporting come from `obelisk_core`.
 
 mod format;
-mod limit;
 mod manifest_cache;
 mod mirrors;
 mod verification;
 
-pub use limit::set_speed_limit;
 pub use manifest_cache::CachedManifest;
 
 use std::{
@@ -41,7 +39,6 @@ use thiserror::Error;
 
 use crate::cm::ContentServer;
 use format::{Chunk, Manifest, ManifestFile, decode_chunk, parse_manifest, unpack_zip};
-use limit::SpeedLimiter;
 use mirrors::{Mirrors, Ticket};
 
 /// Shared with CM avatar hashes.
@@ -177,8 +174,6 @@ impl From<InstallError> for ContentError {
 #[derive(Clone)]
 pub struct ContentClient {
     client: Client,
-    /// Every request of this client's downloads shares one pace.
-    limiter: Arc<SpeedLimiter>,
     /// Local servers standing in for CDN hosts; any other host is unreachable.
     #[cfg(test)]
     test_endpoints: HashMap<String, Url>,
@@ -188,7 +183,6 @@ impl ContentClient {
     pub fn new(client: Client) -> Self {
         Self {
             client,
-            limiter: Arc::new(SpeedLimiter::current()),
             #[cfg(test)]
             test_endpoints: HashMap::new(),
         }
@@ -503,11 +497,9 @@ impl ContentClient {
         if !response.status().is_success() {
             return Err(ContentError::Http(response.status().as_u16()));
         }
-        let advertised = response.content_length();
-        let parts = transfer::unless_stalled(response.bytes_stream(), transfer::CHUNK_STALL);
         let bytes = transfer::read_body(
-            advertised,
-            self.limiter.pace(parts),
+            response.content_length(),
+            transfer::chunk_parts(response.bytes_stream()),
             BodySize::AtMost(limit as u64),
             cancel,
             on_bytes,

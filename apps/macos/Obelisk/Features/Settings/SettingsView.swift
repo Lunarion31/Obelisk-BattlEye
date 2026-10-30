@@ -46,7 +46,7 @@ struct SettingsView: View {
                         ObeliskCard {
                             automaticUpdates
                             ObeliskCardDivider()
-                            steamSpeedLimit
+                            downloadSpeedLimit
                             ObeliskCardDivider()
                             downloadSpeedUnit
                             ObeliskCardDivider()
@@ -147,33 +147,33 @@ struct SettingsView: View {
         }
     }
 
-    private var steamSpeedLimit: some View {
-        let limits = DownloadsModel.steamSpeedLimits
-        return ObeliskRow(title: L10n.string("ui.settings.steam_speed_limit")) {
+    private var downloadSpeedLimit: some View {
+        let limits = DownloadsModel.speedLimits
+        return ObeliskRow(title: L10n.string("ui.settings.download_speed_limit")) {
             SymbolTile(name: "arrow.down.circle", colors: TileColors.blue)
         } detail: {
-            Text(L10n.string("ui.settings.steam_speed_limit_description"))
+            Text(L10n.string("ui.settings.download_speed_limit_description"))
         } accessory: {
             HStack(spacing: 8) {
                 Slider(value: Binding(
-                    get: { Double(limits.firstIndex(of: model.downloads.steamSpeedLimit) ?? limits.count - 1) },
-                    set: { model.downloads.steamSpeedLimit = limits[Int($0.rounded())] }
+                    get: { Double(limits.firstIndex(of: model.downloads.speedLimit) ?? limits.count - 1) },
+                    set: { model.downloads.speedLimit = limits[Int($0.rounded())] }
                 ), in: 0...Double(limits.count - 1), step: 1)
                     .frame(width: 150)
-                    .accessibilityLabel(L10n.string("ui.settings.steam_speed_limit"))
-                    .accessibilityValue(steamSpeedLimitLabel)
-                    .accessibilityIdentifier("settings-steam-speed-limit")
-                Text(steamSpeedLimitLabel)
+                    .accessibilityLabel(L10n.string("ui.settings.download_speed_limit"))
+                    .accessibilityValue(downloadSpeedLimitLabel)
+                    .accessibilityIdentifier("settings-download-speed-limit")
+                Text(downloadSpeedLimitLabel)
                     .monospacedDigit()
                     .frame(width: 100, alignment: .trailing)
             }
         }
     }
 
-    private var steamSpeedLimitLabel: String {
-        let limit = model.downloads.steamSpeedLimit
-        return limit == 0 ? L10n.string("ui.settings.steam_speed_limit_unlimited")
-            : L10n.string("ui.settings.steam_speed_limit_value", Int64(limit))
+    private var downloadSpeedLimitLabel: String {
+        let limit = model.downloads.speedLimit
+        return limit == 0 ? L10n.string("ui.settings.download_speed_limit_unlimited")
+            : L10n.string("ui.settings.download_speed_limit_value", Int64(limit))
     }
 
     private var downloadSpeedUnit: some View {
