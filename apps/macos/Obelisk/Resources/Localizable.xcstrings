@@ -10186,29 +10186,6 @@
         }
       }
     },
-    "ui.settings.download_speed_limit_value": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Mbps"
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Mbps"
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%lld Mbps"
-          }
-        }
-      }
-    },
     "ui.settings.download_speed_unit": {
       "extractionState": "manual",
       "localizations": {

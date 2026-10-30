@@ -15,18 +15,16 @@ use std::{
 use futures_util::{Stream, StreamExt};
 use tokio::time::{Instant, sleep_until};
 
-const BYTES_PER_MEGABIT: u64 = 125_000;
-
 static PACE: Pace = Pace::new();
 
-/// Limits what every storefront downloads, in megabits per second; zero lifts
-/// the limit.
+/// Limits what every storefront downloads, in bytes per second; zero lifts the
+/// limit.
 ///
 /// A limit divides among the requests in flight, each of which must still end
 /// within [`CHUNK_DEADLINE`](super::CHUNK_DEADLINE): at the lowest the app
-/// offers, 5 Mbps, GOG's 16 requests of up to 10 MiB end in under half of it.
-pub fn set_speed_limit(megabits_per_second: u64) {
-    PACE.limit(megabits_per_second);
+/// offers, 625 kB/s, GOG's 16 requests of up to 10 MiB end in under half of it.
+pub fn set_speed_limit(bytes_per_second: u64) {
+    PACE.limit(bytes_per_second);
 }
 
 /// `parts`, each held back until its bytes fit the speed limit.
@@ -38,7 +36,7 @@ pub(super) fn paced<B: AsRef<[u8]>, X>(
 
 struct Pace {
     /// Zero for no limit.
-    megabits_per_second: AtomicU64,
+    bytes_per_second: AtomicU64,
     /// When the bytes reserved so far have all passed.
     next: Mutex<Option<Instant>>,
 }
@@ -46,14 +44,14 @@ struct Pace {
 impl Pace {
     const fn new() -> Self {
         Self {
-            megabits_per_second: AtomicU64::new(0),
+            bytes_per_second: AtomicU64::new(0),
             next: Mutex::new(None),
         }
     }
 
-    fn limit(&self, megabits_per_second: u64) {
-        self.megabits_per_second
-            .store(megabits_per_second, Ordering::Relaxed);
+    fn limit(&self, bytes_per_second: u64) {
+        self.bytes_per_second
+            .store(bytes_per_second, Ordering::Relaxed);
         // What was reserved at the old pace is no debt at the new one.
         *self.lock() = None;
     }
@@ -73,11 +71,10 @@ impl Pace {
     /// Returns once `bytes` more may pass. A pause is no credit: after one,
     /// the bytes do not pass at once.
     async fn pass(&self, bytes: usize) {
-        let megabits = self.megabits_per_second.load(Ordering::Relaxed);
-        if megabits == 0 {
+        let rate = self.bytes_per_second.load(Ordering::Relaxed);
+        if rate == 0 {
             return;
         }
-        let rate = megabits.saturating_mul(BYTES_PER_MEGABIT);
         let passed = {
             let mut next = self.lock();
             let start = next.map_or_else(Instant::now, |next| next.max(Instant::now()));
@@ -99,18 +96,19 @@ mod tests {
 
     use super::*;
 
-    /// 12.5 kB: a tenth of a second at one megabit per second.
+    /// 125 kB/s, and the 12.5 kB that pass in a tenth of a second at it.
+    const RATE: u64 = 125_000;
     const TENTH: usize = 12_500;
 
-    fn limited(megabits_per_second: u64) -> Pace {
+    fn limited(bytes_per_second: u64) -> Pace {
         let pace = Pace::new();
-        pace.limit(megabits_per_second);
+        pace.limit(bytes_per_second);
         pace
     }
 
     #[tokio::test(start_paused = true)]
     async fn concurrent_requests_share_one_pace() {
-        let pace = limited(1);
+        let pace = limited(RATE);
         let start = Instant::now();
         tokio::join!(pace.pass(TENTH), pace.pass(TENTH), pace.pass(TENTH));
         assert_eq!(start.elapsed(), Duration::from_millis(300));
@@ -127,7 +125,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn a_pause_does_not_let_the_next_bytes_through_at_once() {
-        let pace = limited(1);
+        let pace = limited(RATE);
         pace.pass(TENTH).await;
         tokio::time::sleep(Duration::from_secs(10)).await;
         let start = Instant::now();
@@ -138,10 +136,10 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn a_new_limit_applies_at_once_and_forgets_what_the_old_one_reserved() {
-        let pace = limited(1);
+        let pace = limited(RATE);
         // Reserves ten seconds, then gives up waiting for them.
         let _ = tokio::time::timeout(Duration::from_millis(1), pace.pass(100 * TENTH)).await;
-        pace.limit(2);
+        pace.limit(2 * RATE);
         let start = Instant::now();
         pace.pass(TENTH).await;
         assert_eq!(start.elapsed(), Duration::from_millis(50));
@@ -153,7 +151,7 @@ mod tests {
 
     #[tokio::test(start_paused = true)]
     async fn a_paced_stream_holds_each_part_and_passes_a_failure_on() {
-        let pace = limited(1);
+        let pace = limited(RATE);
         let parts = stream::iter([Ok(vec![0; TENTH]), Ok(vec![1; TENTH]), Err("lost")]);
         let start = Instant::now();
         let paced: Vec<_> = pace.pace(parts).collect().await;

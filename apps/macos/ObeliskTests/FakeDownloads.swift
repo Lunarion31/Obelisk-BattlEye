@@ -34,7 +34,7 @@ final class FakeDownloads: DownloadsBackend {
     func pause(_ id: UInt64) { calls.append(.pause(id)) }
     func resume(_ id: UInt64) { calls.append(.resume(id)) }
     func moveToTop(_ id: UInt64) { calls.append(.moveToTop(id)) }
-    func setSpeedLimit(_ megabitsPerSecond: UInt64) { speedLimit = megabitsPerSecond }
+    func setSpeedLimit(_ bytesPerSecond: UInt64) { speedLimit = bytesPerSecond }
 }
 
 extension DownloadItem {

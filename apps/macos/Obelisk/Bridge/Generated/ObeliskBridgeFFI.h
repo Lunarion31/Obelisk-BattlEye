@@ -357,7 +357,7 @@ void uniffi_obelisk_bridge_fn_method_downloads_resume(uint64_t ptr, uint64_t id,
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_OBELISK_BRIDGE_FN_METHOD_DOWNLOADS_SET_SPEED_LIMIT
 #define UNIFFI_FFIDEF_UNIFFI_OBELISK_BRIDGE_FN_METHOD_DOWNLOADS_SET_SPEED_LIMIT
-void uniffi_obelisk_bridge_fn_method_downloads_set_speed_limit(uint64_t ptr, uint64_t megabits_per_second, RustCallStatus *_Nonnull out_status
+void uniffi_obelisk_bridge_fn_method_downloads_set_speed_limit(uint64_t ptr, uint64_t bytes_per_second, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_OBELISK_BRIDGE_FN_METHOD_DOWNLOADS_STATE

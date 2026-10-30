@@ -146,28 +146,25 @@ struct SettingsView: View {
     }
 
     /// The downloads' own settings, in one row: the speed every store may
-    /// download at, and the unit speeds read in.
+    /// download at, and the unit speeds read in, which the limit follows.
     private var downloadSettings: some View {
-        let limits = DownloadsModel.speedLimits
-        return ObeliskRow(title: L10n.string("ui.settings.downloads")) {
+        ObeliskRow(title: L10n.string("ui.settings.downloads")) {
             SymbolTile(name: "speedometer", colors: TileColors.blue)
         } detail: {
             Text(L10n.string("ui.settings.downloads_description"))
         } accessory: {
-            VStack(alignment: .trailing, spacing: 10) {
-                HStack(spacing: 8) {
-                    Slider(value: Binding(
-                        get: { Double(limits.firstIndex(of: model.downloads.speedLimit) ?? limits.count - 1) },
-                        set: { model.downloads.speedLimit = limits[Int($0.rounded())] }
-                    ), in: 0...Double(limits.count - 1), step: 1)
-                        .frame(width: 150)
-                        .accessibilityLabel(L10n.string("ui.settings.download_speed_limit"))
-                        .accessibilityValue(downloadSpeedLimitLabel)
-                        .accessibilityIdentifier("settings-download-speed-limit")
-                    Text(downloadSpeedLimitLabel)
-                        .monospacedDigit()
-                        .frame(width: 100, alignment: .trailing)
-                }
+            HStack(spacing: 10) {
+                Slider(value: Binding(
+                    get: { Double(model.downloads.speedLimitChoice) },
+                    set: { model.downloads.speedLimitChoice = Int($0.rounded()) }
+                ), in: 0...Double(model.downloads.speedUnit.speedLimits.count - 1), step: 1)
+                    .frame(width: 150)
+                    .accessibilityLabel(L10n.string("ui.settings.download_speed_limit"))
+                    .accessibilityValue(downloadSpeedLimitLabel)
+                    .accessibilityIdentifier("settings-download-speed-limit")
+                Text(downloadSpeedLimitLabel)
+                    .monospacedDigit()
+                    .frame(width: 90, alignment: .trailing)
                 Picker(L10n.string("ui.settings.download_speed_unit"), selection: Bindable(model.downloads).speedUnit) {
                     Text(L10n.string("ui.settings.download_speed_unit_bytes")).tag(DownloadSpeedUnit.bytes)
                     Text(L10n.string("ui.settings.download_speed_unit_bits")).tag(DownloadSpeedUnit.bits)
@@ -181,9 +178,9 @@ struct SettingsView: View {
     }
 
     private var downloadSpeedLimitLabel: String {
-        let limit = model.downloads.speedLimit
-        return limit == 0 ? L10n.string("ui.settings.download_speed_limit_unlimited")
-            : L10n.string("ui.settings.download_speed_limit_value", Int64(limit))
+        let downloads = model.downloads
+        return downloads.speedLimit == 0 ? L10n.string("ui.settings.download_speed_limit_unlimited")
+            : DownloadFormatting.speed(Double(downloads.speedLimit), in: downloads.speedUnit)
     }
 
     private var sharePerformance: some View {

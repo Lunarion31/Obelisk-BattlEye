@@ -12,9 +12,9 @@ protocol DownloadsBackend: AnyObject {
     func pause(_ id: UInt64)
     func resume(_ id: UInt64)
     func moveToTop(_ id: UInt64)
-    /// Limits what every storefront downloads, in megabits per second; zero
-    /// lifts the limit. It applies at once, to the Transfer under way too.
-    func setSpeedLimit(_ megabitsPerSecond: UInt64)
+    /// Limits what every storefront downloads, in bytes per second; zero lifts
+    /// the limit. It applies at once, to the Transfer under way too.
+    func setSpeedLimit(_ bytesPerSecond: UInt64)
 }
 
 /// The queue every account's installations share in Rust.
@@ -27,7 +27,7 @@ final class RustDownloads: DownloadsBackend {
     func pause(_ id: UInt64) { core.pause(id: id) }
     func resume(_ id: UInt64) { core.resume(id: id) }
     func moveToTop(_ id: UInt64) { core.moveToTop(id: id) }
-    func setSpeedLimit(_ megabitsPerSecond: UInt64) { core.setSpeedLimit(megabitsPerSecond: megabitsPerSecond) }
+    func setSpeedLimit(_ bytesPerSecond: UInt64) { core.setSpeedLimit(bytesPerSecond: bytesPerSecond) }
 }
 
 /// The unit download speeds read in.
@@ -35,6 +35,16 @@ enum DownloadSpeedUnit: String {
     /// The file sizes Finder shows, per second.
     case bytes
     case bits
+
+    /// The limits the player picks the speed from in this unit, in bytes per
+    /// second, ending with none (zero). Below the lowest, 625 kB/s, a store's
+    /// requests could outlast their deadline: see `set_speed_limit` in Rust.
+    var speedLimits: [Int] {
+        switch self {
+        case .bytes: [1, 2, 5, 10, 25, 50, 100].map { $0 * 1_000_000 } + [0]
+        case .bits: [5, 10, 25, 50, 100, 250, 500, 1000].map { $0 * 125_000 } + [0]
+        }
+    }
 }
 
 /// The running Transfer's download speed at one moment.
@@ -61,7 +71,7 @@ final class DownloadsModel {
     var speedUnit: DownloadSpeedUnit {
         didSet { defaults.set(speedUnit.rawValue, forKey: Self.speedUnitKey) }
     }
-    /// The most every storefront may download in all, in megabits per second;
+    /// The most every storefront may download in all, in bytes per second;
     /// zero leaves it unlimited. It applies at once.
     var speedLimit: Int {
         didSet {
@@ -75,10 +85,6 @@ final class DownloadsModel {
 
     /// How many samples the speed graph keeps.
     static let sampleLimit = 120
-    /// The limits the player picks the speed from, in megabits per second;
-    /// zero is none. Below the lowest, a store's requests could outlast their
-    /// deadline: see `set_speed_limit` in Rust.
-    static let speedLimits = [5, 10, 25, 50, 100, 250, 500, 1000, 0]
     static let speedUnitKey = "obelisk.downloads.speedUnit"
     static let speedLimitKey = "obelisk.downloads.speedLimit"
 
@@ -99,7 +105,8 @@ final class DownloadsModel {
         self.defaults = defaults
         speedUnit = defaults.string(forKey: Self.speedUnitKey).flatMap(DownloadSpeedUnit.init) ?? .bytes
         let limit = defaults.integer(forKey: Self.speedLimitKey)
-        speedLimit = Self.speedLimits.contains(limit) ? limit : 0
+        speedLimit = (DownloadSpeedUnit.bytes.speedLimits + DownloadSpeedUnit.bits.speedLimits).contains(limit)
+            ? limit : 0
         backend.setSpeedLimit(UInt64(speedLimit))
         apply(backend.state())
         observation = Task { [weak self, backend] in
@@ -111,6 +118,18 @@ final class DownloadsModel {
                 apply(state)
             }
         }
+    }
+
+    /// Where the limit stands among the unit's limits: the nearest, since the
+    /// other unit may have offered one between two. Changing the unit leaves
+    /// the limit as it is until the player picks another.
+    var speedLimitChoice: Int {
+        get {
+            let limits = speedUnit.speedLimits
+            guard speedLimit != 0 else { return limits.count - 1 }
+            return limits.dropLast().indices.min { abs(limits[$0] - speedLimit) < abs(limits[$1] - speedLimit) } ?? 0
+        }
+        set { speedLimit = speedUnit.speedLimits[newValue] }
     }
 
     /// Whether anything runs or waits: the sidebar shows the queue then.

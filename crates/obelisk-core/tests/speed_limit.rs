@@ -23,8 +23,8 @@ async fn the_speed_limit_holds_every_response_until_it_is_lifted() {
         "no limit until one is set"
     );
 
-    // One megabit per second carries 12.5 kB in a tenth of a second.
-    set_speed_limit(1);
+    // 125 kB per second carries 12.5 kB in a tenth of a second.
+    set_speed_limit(125_000);
     assert_eq!(read(3, 12_500).await, Duration::from_millis(300));
 
     // A part held longer than a stall allows is no stalled connection.
