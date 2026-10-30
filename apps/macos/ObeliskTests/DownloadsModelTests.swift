@@ -67,4 +67,41 @@ final class DownloadsModelTests: XCTestCase {
         try await eventually { model.running?.id == 2 }
         XCTAssertTrue(model.samples.isEmpty)
     }
+
+    func testTheSteamSpeedLimitReachesRustAndTheUnitAndTheLimitAreRemembered() throws {
+        let suite = "ObeliskTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let queue = FakeDownloads()
+        let model = DownloadsModel(backend: queue, period: .seconds(3600), defaults: defaults)
+        XCTAssertEqual(model.speedUnit, .bytes)
+        XCTAssertEqual(model.steamSpeedLimit, 0, "Steam is unlimited until the player limits it")
+
+        model.steamSpeedLimit = 25
+        model.speedUnit = .bits
+        XCTAssertEqual(queue.steamSpeedLimit, 25)
+
+        let next = FakeDownloads()
+        let reopened = DownloadsModel(backend: next, period: .seconds(3600), defaults: defaults)
+        XCTAssertEqual(reopened.speedUnit, .bits)
+        XCTAssertEqual(reopened.steamSpeedLimit, 25)
+        XCTAssertEqual(next.steamSpeedLimit, 25, "a new start limits Steam again")
+    }
+
+    func testALimitTheSliderDoesNotOfferReadsAsUnlimited() throws {
+        let suite = "ObeliskTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set(7, forKey: DownloadsModel.steamSpeedLimitKey)
+        let queue = FakeDownloads()
+        let model = DownloadsModel(backend: queue, period: .seconds(3600), defaults: defaults)
+        XCTAssertEqual(model.steamSpeedLimit, 0)
+        XCTAssertEqual(queue.steamSpeedLimit, 0)
+    }
+
+    func testASpeedReadsInMegabitsWhenThePlayerChoosesThem() {
+        XCTAssertEqual(DownloadFormatting.speed(1_500_000, in: .bits), "12 Mbps")
+        XCTAssertEqual(DownloadFormatting.speed(-5, in: .bits), "0 Mbps")
+        XCTAssertNotEqual(DownloadFormatting.speed(1_500_000, in: .bytes), DownloadFormatting.speed(1_500_000, in: .bits))
+    }
 }

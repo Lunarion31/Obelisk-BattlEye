@@ -93,8 +93,6 @@ final class AppModel {
             ? .live : .inert) {
         libraryDirectory = directory.path
         self.defaults = defaults
-        let steamLimit = max(0, defaults.integer(forKey: "steamDownloadLimitMbps"))
-        setSteamDownloadLimitMbps(value: UInt64(min(1000, steamLimit)))
         appearance = AppAppearance(rawValue: defaults.string(forKey: "appearance") ?? "system") ?? .system
         language = AppLanguage(defaults: defaults, domain: defaultsDomain)
         updatesGamesAutomatically = defaults.object(forKey: Self.automaticUpdatesKey) as? Bool ?? true
@@ -109,7 +107,7 @@ final class AppModel {
         self.overlay = GameOverlayController(steam: self.steam, epic: self.epic, gog: self.gog, environment: overlay)
         self.steam.overlay = self.overlay
         self.steam.notifier = overlay.notifier
-        self.downloads = downloads ?? DownloadsModel()
+        self.downloads = downloads ?? DownloadsModel(defaults: defaults)
         self.gamesFolder = gamesFolder ?? GamesFolderModel(library: directory)
         let performance = performance ?? PerformanceReports(isEnabled: sharesGamePerformance)
         performance.isEnabled = sharesGamePerformance

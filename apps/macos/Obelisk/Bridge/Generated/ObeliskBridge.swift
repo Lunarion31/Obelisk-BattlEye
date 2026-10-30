@@ -1423,6 +1423,12 @@ public protocol DownloadsProtocol: AnyObject, Sendable {
     
     func resume(id: UInt64) 
     
+    /**
+     * Limits what Steam downloads, in megabits per second; zero lifts the
+     * limit. The Transfers that start from now on keep to it.
+     */
+    func setSteamSpeedLimit(megabitsPerSecond: UInt64) 
+    
     func state()  -> DownloadQueueState
     
 }
@@ -1551,6 +1557,19 @@ open func resume(id: UInt64)  {try! rustCall() {
     uniffi_obelisk_bridge_fn_method_downloads_resume(
             self.uniffiCloneHandle(),
         FfiConverterUInt64.lower(id),uniffiCallStatus
+    )
+}
+}
+    
+    /**
+     * Limits what Steam downloads, in megabits per second; zero lifts the
+     * limit. The Transfers that start from now on keep to it.
+     */
+open func setSteamSpeedLimit(megabitsPerSecond: UInt64)  {try! rustCall() {
+        uniffiCallStatus in
+    uniffi_obelisk_bridge_fn_method_downloads_set_steam_speed_limit(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(megabitsPerSecond),uniffiCallStatus
     )
 }
 }
@@ -16234,6 +16253,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_obelisk_bridge_checksum_method_downloads_resume() != 2894) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_obelisk_bridge_checksum_method_downloads_set_steam_speed_limit() != 59470) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_obelisk_bridge_checksum_method_downloads_state() != 47105) {

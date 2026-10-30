@@ -1,14 +1,6 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "ui.settings.speed_units": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Download speed units"}},"fr":{"stringUnit":{"state":"translated","value":"Unités de vitesse de téléchargement"}},"it":{"stringUnit":{"state":"translated","value":"Unità di velocità di download"}}}},
-    "ui.settings.speed_bytes": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"MB/s"}},"fr":{"stringUnit":{"state":"translated","value":"Mo/s"}},"it":{"stringUnit":{"state":"translated","value":"MB/s"}}}},
-    "ui.settings.speed_bits": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Mbps"}},"fr":{"stringUnit":{"state":"translated","value":"Mbps"}},"it":{"stringUnit":{"state":"translated","value":"Mbps"}}}},
-    "ui.settings.speed_mbps_value": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%@ Mbps"}},"fr":{"stringUnit":{"state":"translated","value":"%@ Mbps"}},"it":{"stringUnit":{"state":"translated","value":"%@ Mbps"}}}},
-    "ui.settings.steam_speed_title": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Steam download speed limit"}},"fr":{"stringUnit":{"state":"translated","value":"Limite de téléchargement Steam"}},"it":{"stringUnit":{"state":"translated","value":"Limite di download Steam"}}}},
-    "ui.settings.steam_speed_detail": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Applies to the next Steam download. Mbps means megabits per second."}},"fr":{"stringUnit":{"state":"translated","value":"S’applique au prochain téléchargement Steam. Mbps signifie mégabits par seconde."}},"it":{"stringUnit":{"state":"translated","value":"Si applica al prossimo download Steam. Mbps indica megabit al secondo."}}}},
-    "ui.settings.steam_speed_unlimited": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"Unlimited"}},"fr":{"stringUnit":{"state":"translated","value":"Illimité"}},"it":{"stringUnit":{"state":"translated","value":"Illimitato"}}}},
-    "ui.settings.steam_speed_value": {"extractionState":"manual","localizations":{"en":{"stringUnit":{"state":"translated","value":"%lld Mbps"}},"fr":{"stringUnit":{"state":"translated","value":"%lld Mbps"}},"it":{"stringUnit":{"state":"translated","value":"%lld Mbps"}}}},
     "backend.steam.chat.emptyMessage": {
       "extractionState": "manual",
       "localizations": {
@@ -10102,6 +10094,190 @@
         }
       }
     },
+    "ui.settings.steam_speed_limit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Steam download speed limit"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite de téléchargement Steam"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite di download Steam"
+          }
+        }
+      }
+    },
+    "ui.settings.steam_speed_limit_description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Applies to the next Steam download. Mbps means megabits per second."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "S’applique au prochain téléchargement Steam. Mbps signifie mégabits par seconde."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Si applica al prossimo download Steam. Mbps indica megabit al secondo."
+          }
+        }
+      }
+    },
+    "ui.settings.steam_speed_limit_unlimited": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unlimited"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Illimité"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Illimitato"
+          }
+        }
+      }
+    },
+    "ui.settings.steam_speed_limit_value": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Mbps"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Mbps"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Mbps"
+          }
+        }
+      }
+    },
+    "ui.settings.download_speed_unit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download speed units"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unités de vitesse de téléchargement"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unità di velocità di download"
+          }
+        }
+      }
+    },
+    "ui.settings.download_speed_unit_description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shows download speeds in bytes or in megabits per second."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Affiche les vitesses de téléchargement en octets ou en mégabits par seconde."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mostra le velocità di download in byte o in megabit al secondo."
+          }
+        }
+      }
+    },
+    "ui.settings.download_speed_unit_bytes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MB/s"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mo/s"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MB/s"
+          }
+        }
+      }
+    },
+    "ui.settings.download_speed_unit_bits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mbps"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mbps"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mbps"
+          }
+        }
+      }
+    },
     "ui.settings.open_store": {
       "extractionState": "manual",
       "localizations": {
@@ -17695,6 +17871,29 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@/s"
+          }
+        }
+      }
+    },
+    "ui.downloads.speed_bits": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Mbps"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Mbps"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ Mbps"
           }
         }
       }

@@ -12,6 +12,9 @@ protocol DownloadsBackend: AnyObject {
     func pause(_ id: UInt64)
     func resume(_ id: UInt64)
     func moveToTop(_ id: UInt64)
+    /// Limits what Steam downloads, in megabits per second; zero lifts the
+    /// limit. The Transfers that start from now on keep to it.
+    func setSteamSpeedLimit(_ megabitsPerSecond: UInt64)
 }
 
 /// The queue every account's installations share in Rust.
@@ -24,6 +27,16 @@ final class RustDownloads: DownloadsBackend {
     func pause(_ id: UInt64) { core.pause(id: id) }
     func resume(_ id: UInt64) { core.resume(id: id) }
     func moveToTop(_ id: UInt64) { core.moveToTop(id: id) }
+    func setSteamSpeedLimit(_ megabitsPerSecond: UInt64) {
+        core.setSteamSpeedLimit(megabitsPerSecond: megabitsPerSecond)
+    }
+}
+
+/// The unit download speeds read in.
+enum DownloadSpeedUnit: String {
+    /// The file sizes Finder shows, per second.
+    case bytes
+    case bits
 }
 
 /// The running Transfer's download speed at one moment.
@@ -46,14 +59,32 @@ final class DownloadsModel {
     /// last two minutes.
     private(set) var samples: [DownloadSpeedSample] = []
     var isPresented = false
+    /// The unit speeds read in, as the player chose.
+    var speedUnit: DownloadSpeedUnit {
+        didSet { defaults.set(speedUnit.rawValue, forKey: Self.speedUnitKey) }
+    }
+    /// The most Steam may download, in megabits per second; zero leaves it
+    /// unlimited. The Transfers that start from now on keep to it.
+    var steamSpeedLimit: Int {
+        didSet {
+            defaults.set(steamSpeedLimit, forKey: Self.steamSpeedLimitKey)
+            backend.setSteamSpeedLimit(UInt64(steamSpeedLimit))
+        }
+    }
 
     /// The running Transfer's progress, as its storefront's installations show it.
     @ObservationIgnored var progress: @MainActor (DownloadItem) -> GameTransfer? = { _ in nil }
 
     /// How many samples the speed graph keeps.
     static let sampleLimit = 120
+    /// The limits the player picks Steam's speed from, in megabits per second;
+    /// zero is none.
+    static let steamSpeedLimits = [5, 10, 25, 50, 100, 250, 500, 1000, 0]
+    static let speedUnitKey = "obelisk.downloads.speedUnit"
+    static let steamSpeedLimitKey = "obelisk.downloads.steamSpeedLimit"
 
     @ObservationIgnored private let backend: any DownloadsBackend
+    @ObservationIgnored private let defaults: UserDefaults
     @ObservationIgnored private let period: Duration
     @ObservationIgnored private var revision: UInt64?
     @ObservationIgnored private var observation: Task<Void, Never>?
@@ -62,9 +93,15 @@ final class DownloadsModel {
     @ObservationIgnored private var lastSample: (time: Date, bytes: UInt64)?
     @ObservationIgnored private var nextSample = 0
 
-    init(backend: any DownloadsBackend = RustDownloads(), period: Duration = .seconds(1)) {
+    init(backend: any DownloadsBackend = RustDownloads(), period: Duration = .seconds(1),
+         defaults: UserDefaults = .standard) {
         self.backend = backend
         self.period = period
+        self.defaults = defaults
+        speedUnit = defaults.string(forKey: Self.speedUnitKey).flatMap(DownloadSpeedUnit.init) ?? .bytes
+        let limit = defaults.integer(forKey: Self.steamSpeedLimitKey)
+        steamSpeedLimit = Self.steamSpeedLimits.contains(limit) ? limit : 0
+        backend.setSteamSpeedLimit(UInt64(steamSpeedLimit))
         apply(backend.state())
         observation = Task { [weak self, backend] in
             var after = self?.revision ?? 0
