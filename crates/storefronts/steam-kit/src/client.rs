@@ -491,7 +491,8 @@ impl Client {
     /// Most recently played first, then name. Steam's owned games leave out
     /// the free games the account never played, which its store and client
     /// still count, such as Counter-Strike 2 once its store page added it:
-    /// the account's own licenses add them back.
+    /// the account's own licenses add them back, and the games a family
+    /// member lends join them.
     pub async fn games(&self) -> Result<Vec<OwnedGame>, ClientError> {
         // Download rights then follow the licenses this load reads.
         *self.catalog.lock().await = None;
@@ -517,7 +518,8 @@ impl Client {
     }
 
     /// The released games, demos and playtests the account's own licenses
-    /// grant that `listed` leaves out.
+    /// grant that `listed` leaves out, and those a family member lends, which
+    /// Steam's owned games never list.
     async fn unplayed_games(
         &self,
         licensed: &ContentLicenses,
@@ -525,7 +527,7 @@ impl Client {
     ) -> Result<Vec<OwnedGame>, ClientError> {
         let listed: HashSet<_> = listed.iter().map(|game| game.app_id).collect();
         let missing: Vec<_> = licensed
-            .own_apps
+            .apps
             .iter()
             .copied()
             .filter(|app_id| !listed.contains(app_id))
@@ -539,9 +541,16 @@ impl Client {
             if licensed.free_apps.contains(&app.app_id) && !app.on_store() {
                 continue;
             }
-            let app = Arc::new(app);
-            self.remember_app(&app);
-            games.extend(app.unplayed_game());
+            // A publisher can keep a game from the family's libraries.
+            if !licensed.own_apps.contains(&app.app_id) && app.excluded_from_sharing() {
+                continue;
+            }
+            // The DLC and tools a family library holds are not worth keeping.
+            let Some(game) = app.unplayed_game() else {
+                continue;
+            };
+            self.remember_app(&Arc::new(app));
+            games.push(game);
         }
         Ok(games)
     }
