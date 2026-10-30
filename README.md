@@ -108,7 +108,7 @@ Obelisk is signed and notarized by Apple, so it opens without a security warning
 - **Download** picks the Mac version of a game when there is one, otherwise the Windows version.
 - Downloads wait in one queue, whatever their store, and run one at a time. The **downloads** button above Settings in the sidebar shows the download speed and lets you pause, resume, reorder or remove each download.
 - An interrupted download resumes where it stopped, even after quitting Obelisk.
-- To keep downloads from using your whole connection, limit their speed in **Settings → Games**. The limit applies at once, whatever the store. The same section chooses whether speeds read in bytes or in megabits per second.
+- To keep downloads from using your whole connection, limit their speed with **Download settings** in **Settings → Games**. The limit applies at once, whatever the store. The same row chooses whether speeds read in bytes or in megabits per second.
 - Games update automatically when a new version comes out. Updates wait while you play. To update only when you launch a game, turn off **Update games automatically** in **Settings → Games**.
 - You can play an installed game while another one downloads.
 - **Verify game files**, in the gear menu next to the **Play** button, repairs missing or damaged files. **Uninstall** is in the same menu.

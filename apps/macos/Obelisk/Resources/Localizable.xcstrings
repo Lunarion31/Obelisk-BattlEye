@@ -10094,6 +10094,52 @@
         }
       }
     },
+    "ui.settings.downloads": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download settings"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réglages de téléchargement"
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impostazioni di download"
+          }
+        }
+      }
+    },
+    "ui.settings.downloads_description": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limits what every store downloads, right away, and sets the unit speeds read in. Mbps means megabits per second."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limite ce que téléchargent toutes les boutiques, immédiatement, et choisit l’unité des vitesses. Mbps signifie mégabits par seconde."
+          }
+        },
+        "it": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Limita ciò che scaricano tutti gli store, subito, e sceglie l’unità delle velocità. Mbps indica megabit al secondo."
+          }
+        }
+      }
+    },
     "ui.settings.download_speed_limit": {
       "extractionState": "manual",
       "localizations": {
@@ -10113,29 +10159,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Limite di velocità di download"
-          }
-        }
-      }
-    },
-    "ui.settings.download_speed_limit_description": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Applies to the downloads of every store, right away. Mbps means megabits per second."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "S’applique aux téléchargements de toutes les boutiques, immédiatement. Mbps signifie mégabits par seconde."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Si applica ai download di ogni store, subito. Mbps indica megabit al secondo."
           }
         }
       }
@@ -10205,29 +10228,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unità di velocità di download"
-          }
-        }
-      }
-    },
-    "ui.settings.download_speed_unit_description": {
-      "extractionState": "manual",
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Shows download speeds in bytes or in megabits per second."
-          }
-        },
-        "fr": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Affiche les vitesses de téléchargement en octets ou en mégabits par seconde."
-          }
-        },
-        "it": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Mostra le velocità di download in byte o in megabit al secondo."
           }
         }
       }

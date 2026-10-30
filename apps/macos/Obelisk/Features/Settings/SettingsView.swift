@@ -46,9 +46,7 @@ struct SettingsView: View {
                         ObeliskCard {
                             automaticUpdates
                             ObeliskCardDivider()
-                            downloadSpeedLimit
-                            ObeliskCardDivider()
-                            downloadSpeedUnit
+                            downloadSettings
                             ObeliskCardDivider()
                             overlay
                             ObeliskCardDivider()
@@ -147,25 +145,37 @@ struct SettingsView: View {
         }
     }
 
-    private var downloadSpeedLimit: some View {
+    /// The downloads' own settings, in one row: the speed every store may
+    /// download at, and the unit speeds read in.
+    private var downloadSettings: some View {
         let limits = DownloadsModel.speedLimits
-        return ObeliskRow(title: L10n.string("ui.settings.download_speed_limit")) {
-            SymbolTile(name: "arrow.down.circle", colors: TileColors.blue)
+        return ObeliskRow(title: L10n.string("ui.settings.downloads")) {
+            SymbolTile(name: "speedometer", colors: TileColors.blue)
         } detail: {
-            Text(L10n.string("ui.settings.download_speed_limit_description"))
+            Text(L10n.string("ui.settings.downloads_description"))
         } accessory: {
-            HStack(spacing: 8) {
-                Slider(value: Binding(
-                    get: { Double(limits.firstIndex(of: model.downloads.speedLimit) ?? limits.count - 1) },
-                    set: { model.downloads.speedLimit = limits[Int($0.rounded())] }
-                ), in: 0...Double(limits.count - 1), step: 1)
-                    .frame(width: 150)
-                    .accessibilityLabel(L10n.string("ui.settings.download_speed_limit"))
-                    .accessibilityValue(downloadSpeedLimitLabel)
-                    .accessibilityIdentifier("settings-download-speed-limit")
-                Text(downloadSpeedLimitLabel)
-                    .monospacedDigit()
-                    .frame(width: 100, alignment: .trailing)
+            VStack(alignment: .trailing, spacing: 10) {
+                HStack(spacing: 8) {
+                    Slider(value: Binding(
+                        get: { Double(limits.firstIndex(of: model.downloads.speedLimit) ?? limits.count - 1) },
+                        set: { model.downloads.speedLimit = limits[Int($0.rounded())] }
+                    ), in: 0...Double(limits.count - 1), step: 1)
+                        .frame(width: 150)
+                        .accessibilityLabel(L10n.string("ui.settings.download_speed_limit"))
+                        .accessibilityValue(downloadSpeedLimitLabel)
+                        .accessibilityIdentifier("settings-download-speed-limit")
+                    Text(downloadSpeedLimitLabel)
+                        .monospacedDigit()
+                        .frame(width: 100, alignment: .trailing)
+                }
+                Picker(L10n.string("ui.settings.download_speed_unit"), selection: Bindable(model.downloads).speedUnit) {
+                    Text(L10n.string("ui.settings.download_speed_unit_bytes")).tag(DownloadSpeedUnit.bytes)
+                    Text(L10n.string("ui.settings.download_speed_unit_bits")).tag(DownloadSpeedUnit.bits)
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .fixedSize()
+                .accessibilityIdentifier("settings-download-speed-unit")
             }
         }
     }
@@ -174,23 +184,6 @@ struct SettingsView: View {
         let limit = model.downloads.speedLimit
         return limit == 0 ? L10n.string("ui.settings.download_speed_limit_unlimited")
             : L10n.string("ui.settings.download_speed_limit_value", Int64(limit))
-    }
-
-    private var downloadSpeedUnit: some View {
-        ObeliskRow(title: L10n.string("ui.settings.download_speed_unit")) {
-            SymbolTile(name: "speedometer", colors: TileColors.blue)
-        } detail: {
-            Text(L10n.string("ui.settings.download_speed_unit_description"))
-        } accessory: {
-            Picker(L10n.string("ui.settings.download_speed_unit"), selection: Bindable(model.downloads).speedUnit) {
-                Text(L10n.string("ui.settings.download_speed_unit_bytes")).tag(DownloadSpeedUnit.bytes)
-                Text(L10n.string("ui.settings.download_speed_unit_bits")).tag(DownloadSpeedUnit.bits)
-            }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .frame(width: 190)
-            .accessibilityIdentifier("settings-download-speed-unit")
-        }
     }
 
     private var sharePerformance: some View {
