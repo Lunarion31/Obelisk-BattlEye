@@ -3,7 +3,9 @@ use crate::{
     abi::{ClientFriends, ClientUser, Engine},
     lobby, mach, overlay, received,
 };
-use game_runtime::protocol::{Credentials, Event, Failure, HostCommand, OverlayDialog};
+use game_runtime::protocol::{
+    Credentials, Event, Failure, HOST_STARTUP_TIMEOUT, HostCommand, OverlayDialog,
+};
 use std::{
     ffi::{CStr, CString},
     fs::File,
@@ -212,7 +214,7 @@ pub fn serve(
                 )?;
             }
         }
-        if !ready && deadline.elapsed() > Duration::from_secs(45) {
+        if !ready && deadline.elapsed() > HOST_STARTUP_TIMEOUT {
             emit(
                 output,
                 &Event::Failed {

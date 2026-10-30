@@ -53,6 +53,12 @@ impl AppInfo {
         })
     }
 
+    /// Whether its publisher keeps the game out of Family Sharing, which
+    /// then stays with the account that bought it.
+    pub(crate) fn excluded_from_sharing(&self) -> bool {
+        self.common("exfgls") == Some("1")
+    }
+
     /// Whether the Steam store has a page for the app.
     pub(crate) fn on_store(&self) -> bool {
         self.common("store_asset_mtime").is_some()
@@ -326,7 +332,7 @@ mod tests {
         );
         assert!(rights.depots.contains(&1046443));
         assert!(rights.apps.contains(&99));
-        // A family member's license grants downloads, not a place in the library.
+        // A family member's license grants downloads and a borrowed game.
         assert_eq!(rights.own_apps, BTreeSet::from([588650]));
         assert!(!rights.apps.contains(&1046443));
         assert!(!rights.depots.contains(&99));
@@ -357,12 +363,15 @@ mod tests {
         assert!(rights.apps.contains(&30));
     }
 
+    /// App 730 with the given `common` fields.
+    fn common_app(common: &str) -> AppInfo {
+        let info = format!(r#""appinfo" {{ "appid" "730" "common" {{ {common} }} }}"#);
+        parse_app(730, info.as_bytes()).unwrap()
+    }
+
     #[test]
     fn only_a_released_game_demo_or_playtest_joins_the_library_unplayed() {
-        let app = |common: &str| {
-            let info = format!(r#""appinfo" {{ "appid" "730" "common" {{ {common} }} }}"#);
-            parse_app(730, info.as_bytes()).unwrap().unplayed_game()
-        };
+        let app = |common: &str| common_app(common).unplayed_game();
         let game = app(
             r#""name" "Counter-Strike 2" "type" "Game" "icon" "8dbc71" "releasestate" "released""#,
         )
@@ -378,6 +387,13 @@ mod tests {
         assert!(app(r#""name" "Server" "type" "Tool""#).is_none());
         assert!(app(r#""name" "Upcoming" "type" "Game" "releasestate" "prerelease""#).is_none());
         assert!(app(r#""type" "Game""#).is_none());
+    }
+
+    #[test]
+    fn a_publisher_can_keep_a_game_from_family_sharing() {
+        assert!(common_app(r#""name" "Kept Home" "exfgls" "1""#).excluded_from_sharing());
+        assert!(!common_app(r#""name" "Lendable" "exfgls" "0""#).excluded_from_sharing());
+        assert!(!common_app(r#""name" "Lendable""#).excluded_from_sharing());
     }
 
     #[test]

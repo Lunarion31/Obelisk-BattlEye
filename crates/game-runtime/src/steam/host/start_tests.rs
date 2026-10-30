@@ -33,20 +33,25 @@ fn ready_host(_: &files::Prepared, _: &Config, _: &str) -> Result<process::Child
     ))
 }
 
-#[test]
-fn host_readiness_admits_an_unknown_sdk_and_reports_it_as_unchecked() {
-    let root = tempfile::tempdir().unwrap();
-    let (config, prepared) = fixture(root.path());
-    let host = Startup::new(credentials())
+/// Starts the host of `ready_host` for the fixture's account.
+fn start(config: &Config, prepared: files::Prepared) -> Host {
+    Startup::new(credentials())
         .prepare_host(
-            &config,
+            config,
             None,
             &mut Vec::new(),
             credentials(),
             prepared,
             ready_host,
         )
-        .unwrap();
+        .unwrap()
+}
+
+#[test]
+fn host_readiness_admits_an_unknown_sdk_and_reports_it_as_unchecked() {
+    let root = tempfile::tempdir().unwrap();
+    let (config, prepared) = fixture(root.path());
+    let host = start(&config, prepared);
     assert_eq!(host.environment()["Steam3Master"], "127.0.0.1:1");
     let report: serde_json::Value =
         serde_json::from_slice(&fs::read(root.path().join("report.json")).unwrap()).unwrap();
@@ -54,6 +59,32 @@ fn host_readiness_admits_an_unknown_sdk_and_reports_it_as_unchecked() {
     assert_eq!(report["host_license_verified"], true);
     assert_eq!(report["sdk_checked"], false);
     host.stopped(None);
+}
+
+#[test]
+fn the_accounts_kept_files_reach_the_host_and_what_it_writes_is_kept() {
+    let root = tempfile::tempdir().unwrap();
+    let (config, prepared) = fixture(root.path());
+    let id = credentials().steam_id;
+    let steam = prepared.steam_directory();
+    let cache = licenses::LicenseCache::new(root.path(), id, &steam).unwrap();
+    fs::write(cache.kept().join("licensecache"), b"kept licenses").unwrap();
+    let host = start(&config, prepared);
+    assert_eq!(
+        fs::read(steam.join(format!("userdata/{}/config/licensecache", id as u32))).unwrap(),
+        b"kept licenses"
+    );
+    fs::write(steam.join("appcache/packageinfo.vdf"), b"fetched").unwrap();
+    host.stopped(None);
+    drop(host);
+    assert_eq!(
+        fs::read(cache.kept().join("packageinfo.vdf")).unwrap(),
+        b"fetched"
+    );
+    assert_eq!(
+        fs::read(cache.kept().join("licensecache")).unwrap(),
+        b"kept licenses"
+    );
 }
 
 fn storage(root: &std::path::Path) -> (NativeStorage, PathBuf) {

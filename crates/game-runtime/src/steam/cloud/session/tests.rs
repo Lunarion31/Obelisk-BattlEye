@@ -369,6 +369,82 @@ fn roaming_rule() -> CloudMetadata {
     )])
 }
 
+/// Rules for every platform in the game's install directory, as Quake's: the
+/// rules spell the directory `Id1`, the server's older files `id1`.
+fn all_platforms_install_rules() -> CloudMetadata {
+    let value = |text: &str| CloudMetadata::Value(text.into());
+    let rule = |pattern: &str| {
+        CloudMetadata::Object(vec![
+            ("root".into(), value("gameinstall")),
+            ("path".into(), value("Id1")),
+            ("pattern".into(), value(pattern)),
+            (
+                "platforms".into(),
+                CloudMetadata::Object(vec![("1".into(), value("all"))]),
+            ),
+        ])
+    };
+    CloudMetadata::Object(vec![(
+        "savefiles".into(),
+        CloudMetadata::Object(vec![
+            ("0".into(), rule("*.sav")),
+            ("1".into(), rule("config.cfg")),
+        ]),
+    )])
+}
+
+#[tokio::test]
+async fn rules_for_all_platforms_sync_files_the_server_spells_in_another_case() {
+    let mut game = SteamGame::game();
+    let prefix = game.config.root.join("fixture-prefix");
+    game.run_in(&prefix);
+    game.cloud.set_metadata(Some(all_platforms_install_rules()));
+    let local = game.config.install.join("Id1/test.sav");
+    fs::create_dir_all(local.parent().unwrap()).unwrap();
+    // Only a case-insensitive volume, macOS's default, reaches `Id1` as `id1`.
+    if !game.config.install.join("id1").is_dir() {
+        return;
+    }
+    fs::write(&local, b"synthetic initial progress").unwrap();
+    let remote = "%GameInstall%Id1/test.sav";
+    game.cloud
+        .publish_for(remote, b"synthetic initial progress", u32::MAX);
+    let config = game.config.install.join("Id1/config.cfg");
+    fs::write(&config, b"synthetic initial config").unwrap();
+    let historical_config = "%GameInstall%id1/config.cfg";
+    game.cloud
+        .publish_for(historical_config, b"synthetic initial config", u32::MAX);
+    let mut sync = game.open();
+    tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        sync.prepare(&no_other_session),
+    )
+    .await
+    .expect("rules for all platforms should not block on an unsupported-rule question")
+    .unwrap();
+    assert_eq!(game.control.status().phase, Phase::Ready);
+    assert_eq!(game.cloud.uploads(), 0);
+    sync.started().unwrap();
+    fs::write(&local, b"synthetic new progress").unwrap();
+    fs::write(&config, b"synthetic new config").unwrap();
+    fs::write(
+        game.config.install.join("Id1/new.sav"),
+        b"synthetic new file",
+    )
+    .unwrap();
+    sync.finished(true).await;
+    assert_eq!(game.control.status().phase, Phase::Synced);
+    assert_eq!(game.cloud.file(remote).unwrap(), b"synthetic new progress");
+    assert_eq!(
+        game.cloud.file(historical_config).unwrap(),
+        b"synthetic new config"
+    );
+    assert!(game.cloud.file("%GameInstall%Id1/config.cfg").is_none());
+    let new_remote = "%GameInstall%Id1/new.sav";
+    assert_eq!(game.cloud.file(new_remote).unwrap(), b"synthetic new file");
+    assert_eq!(game.cloud.file_platforms(new_remote), Some(u32::MAX));
+}
+
 #[tokio::test]
 async fn a_mac_build_whose_rules_are_all_for_windows_starts_without_cloud() {
     let game = SteamGame::game();

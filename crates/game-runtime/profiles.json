@@ -60,6 +60,13 @@
       "executable": "start_protected_game.exe"
     },
     {
+      "name": "THE FINALS",
+      "note": "Embark's THEIA packer refuses Rosetta's Wine (E111000D) and runs on the Linux engine, with Denuvo Anti-Cheat. Unreal renders it with Direct3D 12, through D3DMetal: with Direct3D 11 through DXMT, matches held the frame each time DXMT compiled a new pipeline.",
+      "steam": 2073850,
+      "engine": "Linux",
+      "graphics": "D3DMetal"
+    },
+    {
       "name": "Counter-Strike 2",
       "note": "Renders through DXMT rather than D3DMetal.",
       "steam": 730,

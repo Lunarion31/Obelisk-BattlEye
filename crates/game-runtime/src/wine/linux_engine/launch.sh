@@ -17,6 +17,9 @@
 #   --pass NAME               this script's variable NAME, when set, as a variable of the guest
 # OBELISK_APP_NAME names the game in the menu bar, the Dock and Cmd-Tab.
 set -u
+# The Steam host's discovery adapter is for macOS games; no process here needs it. On a Mac with SIP off, dyld also
+# inserts it into the system tools this script runs (mkdir, tr, tail), which are arm64e and abort without that slice.
+unset DYLD_INSERT_LIBRARIES
 runtime=$1 home=$2 install=$3 cwd=$4
 shift 4
 graphics=dxmt binds= guest_env=()
@@ -48,9 +51,12 @@ case " ${guest_env[*]-} " in
 esac
 
 # Wine, the render server and D3DMetal keep a file open for each mapped resource. An app the Finder starts gets 256,
-# which Wine outgrows: take up to 65536, as far as the hard limit and macOS allow.
+# which Wine outgrows: take up to 65536, as far as the hard limit and macOS allow. macOS refuses more than
+# kern.maxfilesperproc, which is below 65536 on Macs with less memory.
 files=$(ulimit -H -n)
 { [ "$files" = unlimited ] || [ "$files" -gt 65536 ]; } && files=65536
+most=$(sysctl -n kern.maxfilesperproc 2>/dev/null)
+[[ $most =~ ^[0-9]+$ ]] && [ "$most" -lt "$files" ] && files=$most
 ulimit -S -n "$files" 2>/dev/null || ulimit -S -n 10240 2>/dev/null
 
 # wsd and the render server bind UNIX sockets in a private folder; a relative path keeps them inside sun_path.
